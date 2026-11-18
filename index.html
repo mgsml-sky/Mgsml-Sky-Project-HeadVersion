@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGSML SKY PROJECT - Global Ecosystem</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfN-bzvkvDKH4zFMztm_PZVmRH01gL63Y",
+            authDomain: "mgs-mega-project.firebaseapp.com",
+            projectId: "mgs-mega-project",
+            storageBucket: "mgs-mega-project.firebasestorage.app",
+            messagingSenderId: "802244407572",
+            appId: "1:802244407572:web:05985d2c0dd43763269201"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        db.enablePersistence().catch((err) => console.log("Persistence note:", err.code));
+    </script>
+
+    <style>
+        :root {
+            --primary-sky: #38bdf8;
+            --accent-green: #10b981;
+            --danger: #ef4444;
+            --gold: #f59e0b;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #030712; color: #ffffff;
+        }
+
+        /* 3-LINE STAIRCASE SPLASH INTRO SCREEN */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #020617, #0f172a, #0369a1);
+            z-index: 99999; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: opacity 1.5s ease-in-out;
+        }
+
+        .splash-staircase-wrapper {
+            display: flex; flex-direction: column; gap: 15px; width: 320px;
+        }
+
+        .splash-line { display: flex; gap: 8px; }
+        .line-1 { justify-content: flex-start; padding-left: 0px; }
+        .line-2 { justify-content: center; padding-left: 60px; }
+        .line-3 { justify-content: flex-end; padding-right: 10px; }
+
+        .letter-box {
+            width: 45px; height: 55px; background: rgba(15, 23, 42, 0.9);
+            border: 2.5px solid var(--primary-sky); border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; font-weight: 900; color: #38bdf8;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+            opacity: 0; transform: translateY(-40px);
+            animation: dropLetter 0.5s forwards;
+        }
+        .line-2 .letter-box { border-color: #10b981; color: #10b981; box-shadow: 0 0 20px rgba(16, 185, 129, 0.6); }
+        .line-3 .letter-box { border-color: #f59e0b; color: #f59e0b; box-shadow: 0 0 20px rgba(245, 158, 11, 0.6); }
+
+        @keyframes dropLetter {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .splash-subtitle {
+            margin-top: 30px; font-size: 13px; letter-spacing: 2px; color: #94a3b8;
+            text-transform: uppercase; opacity: 0; animation: fadeInText 1s 2s forwards;
+        }
+        @keyframes fadeInText { to { opacity: 1; } }
+
+        /* Scenery Background */
+        .scenery-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1; transition: background 2.5s ease-in-out; overflow: hidden;
+        }
+        .scenery-background.theme-morning { background: linear-gradient(to top, #1c1917 0%, #c2410c 35%, #f97316 70%, #fde047 100%); }
+        .scenery-background.theme-afternoon { background: linear-gradient(to top, #0f172a 0%, #0369a1 40%, #0ea5e9 75%, #38bdf8 100%); }
+        .scenery-background.theme-evening { background: linear-gradient(to top, #311042 0%, #7c3aed 35%, #db2777 70%, #f59e0b 100%); }
+        .scenery-background.theme-night { background: linear-gradient(to top, #020617 0%, #090d16 40%, #0f172a 80%, #1e293b 100%); }
+
+        .celestial-object {
+            position: absolute; top: 70px; right: 18%; width: 55px; height: 55px;
+            border-radius: 50%; transition: all 2.5s ease-in-out;
+        }
+        .theme-morning .celestial-object { background: #fef08a; box-shadow: 0 0 50px #f97316; }
+        .theme-afternoon .celestial-object { background: #fef9c3; box-shadow: 0 0 60px #facc15; top: 55px; }
+        .theme-evening .celestial-object { background: #fdba74; box-shadow: 0 0 45px #ea580c; top: 90px; }
+        .theme-night .celestial-object { background: #f1f5f9; box-shadow: 0 0 30px rgba(255,255,255,0.6); width: 40px; height: 40px; }
+
+        .landscape-silhouette {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 120px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0,120 L0,80 L20,80 L20,30 L30,30 L30,80 L50,80 L50,50 L60,50 L60,80 L90,80 L90,20 L105,20 L105,80 L130,80 L130,40 L140,40 L140,80 L180,80 L180,10 L195,10 L195,80 L230,80 L230,35 L245,35 L245,80 L290,80 L290,15 L305,15 L305,80 L350,80 L350,45 L365,45 L365,80 L420,80 L420,25 L435,25 L435,80 L490,80 L490,10 L505,10 L505,80 L560,80 L560,35 L575,35 L575,80 L630,80 L630,20 L645,20 L645,80 L700,80 L700,40 L715,40 L715,80 L770,80 L770,15 L785,15 L785,80 L840,80 L840,30 L855,30 L855,80 L920,80 L920,25 L935,25 L935,80 L1000,80 L1000,45 L1015,45 L1015,80 L1080,80 L1080,20 L1095,20 L1095,80 L1200,80 L1200,120 Z' fill='%23030712'/%3E%3C/svg%3E");
+            background-repeat: repeat-x; z-index: 2;
+        }
+
+        .top-bar {
+            position: fixed; top: 0; left: 0; width: 100%; height: 55px;
+            display: flex; justify-content: space-between; align-items: center; padding: 0 10px;
+            background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(12px);
+            border-bottom: 1.5px solid rgba(56, 189, 248, 0.2); box-sizing: border-box; z-index: 5000;
+        }
+        .brand-container { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .brand-logo {
+            width: 26px; height: 26px; background: linear-gradient(135deg, #38bdf8, #10b981);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 12px; color: #030712; box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+            flex-shrink: 0;
+        }
+        .brand-title {
+            font-size: 12px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;
+            animation: colorChangeAnim 8s infinite alternate; white-space: nowrap;
+        }
+        @keyframes colorChangeAnim {
+            0% { color: #38bdf8; text-shadow: 0 0 12px rgba(56,189,248,0.8); }
+            33% { color: #ef4444; text-shadow: 0 0 12px rgba(239,68,68,0.8); }
+            66% { color: #10b981; text-shadow: 0 0 12px rgba(16,185,129,0.8); }
+            100% { color: #f59e0b; text-shadow: 0 0 12px rgba(245,158,11,0.8); }
+        }
+
+        .auth-buttons-group { display: flex; gap: 6px; }
+        .action-btn {
+            background: linear-gradient(135deg, #0284c7, #38bdf8); color: #ffffff;
+            border: 1.5px solid #7dd3fc; padding: 4px 10px; font-size: 10px; font-weight: 900;
+            border-radius: 6px; cursor: pointer; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
+            text-transform: uppercase; transition: all 0.2s ease-in-out;
+        }
+        .action-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(56, 189, 248, 0.7); }
+        .action-btn.signup-theme {
+            background: linear-gradient(135deg, #059669, #10b981); border-color: #6ee7b7;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .user-profile-pill {
+            display: none; align-items: center; gap: 5px; background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--accent-green); padding: 4px 10px; border-radius: 15px; 
+            font-size: 11px; font-weight: bold; color: #10b981; cursor: pointer; white-space: nowrap;
+        }
+
+        /* Workspace Grid (14 Preview Buttons) */
+        .floating-workspace {
+            position: absolute; top: 62px; left: 12px; right: 12px; bottom: 120px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 8px; padding: 5px; box-sizing: border-box; z-index: 10; overflow-y: auto; align-content: center;
+        }
+        .floating-pill {
+            background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);
+            border: 1.5px solid rgba(56, 189, 248, 0.5); padding: 10px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 900; color: #ffffff; text-align: center; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); transition: all 0.2s ease-in-out;
+            display: flex; align-items: center; justify-content: center; word-break: break-word; text-transform: uppercase;
+        }
+        .floating-pill:hover {
+            border-color: var(--accent-green); background: rgba(16, 185, 129, 0.3); transform: translateY(-2px);
+        }
+
+        .enter-home-footer {
+            position: fixed; bottom: 12px; left: 12px; right: 12px; height: 50px;
+            background: linear-gradient(135deg, #0284c7, #10b981, #f59e0b);
+            background-size: 200% 200%;
+            animation: gradientAnim 5s ease infinite;
+            border: 2px solid #ffffff; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 900; color: #ffffff; text-transform: uppercase;
+            letter-spacing: 1px; cursor: pointer; z-index: 20;
+            box-shadow: 0 4px 20px rgba(56, 189, 248, 0.6);
+            transition: transform 0.2s;
+        }
+        .enter-home-footer:hover { transform: scale(1.02); }
+        @keyframes gradientAnim {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(3, 7, 18, 0.92); backdrop-filter: blur(12px); z-index: 10000;
+            justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;
+        }
+        .modal-box {
+            background: #111827; border: 1px solid #1f2937; padding: 25px; border-radius: 12px;
+            width: 100%; max-width: 500px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.8); max-height: 90vh; overflow-y: auto;
+        }
+        .custom-input {
+            width: 100%; padding: 10px; margin: 8px 0; background: #030712; border: 1px solid #1f2937;
+            color: white; border-radius: 6px; box-sizing: border-box; font-size: 12px; font-weight: 600;
+        }
+        .modal-close { float: right; background: none; border: none; color: var(--danger); font-size: 16px; font-weight: bold; cursor: pointer; }
+
+        .wallet-badge-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(15, 23, 42, 0.9); border: 1px solid #334155;
+            padding: 8px 12px; border-radius: 6px; margin-top: 4px; font-size: 11px;
+        }
+
+        #admin-mini-box {
+            display: none; position: fixed; top: 58px; left: 12px; width: 100px; height: 35px;
+            background: #000000; border: none; outline: none; box-shadow: none;
+            z-index: 20000; padding: 0; box-sizing: border-box;
+            align-items: center; justify-content: center;
+        }
+
+        .broadcast-card {
+            background: #ffffff;
+            color: #0f172a;
+            border: 3px solid #0284c7;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            width: 94%; max-width: 520px; 
+            height: 420px; max-height: 85vh;
+            border-radius: 20px; padding: 25px; box-sizing: border-box;
+            display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+            text-align: left; position: relative; overflow: hidden;
+        }
+        .broadcast-word {
+            display: inline-block; opacity: 0; transform: translateY(-20px);
+            animation: dropWord 0.35s forwards; font-weight: 600; font-size: 15px; line-height: 1.7;
+            margin-right: 4px; color: #1e293b;
+        }
+        @keyframes dropWord {
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="splash-staircase-wrapper">
+            <div class="splash-line line-1" id="line1Boxes"></div>
+            <div class="splash-line line-2" id="line2Boxes"></div>
+            <div class="splash-line line-3" id="line3Boxes"></div>
+        </div>
+        <div class="splash-subtitle">Welcome to MGSML Sky Project</div>
+        
+        <audio id="splashAudio" autoplay>
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+        </audio>
+    </div>
+
+    <!-- BROADCAST POPUP MODAL -->
+    <div id="broadcast-modal" class="modal-overlay">
+        <div class="broadcast-card">
+            <h3 style="color: #0284c7; margin-top:0; font-size:18px; font-weight:900; text-transform:uppercase; text-align:center; width:100%; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">📢 MGSML Broadcast Notice</h3>
+            <div id="broadcast-content-area" style="font-size:14px; color:#1e293b; line-height:1.7; margin:10px 0; flex:1; overflow-y:auto; width:100%; text-align:left; font-weight:600; padding: 5px;"></div>
+            <button class="action-btn signup-theme" style="width:100%; padding:12px; font-size:13px; font-weight:900; text-align:center;" onclick="closeBroadcastModal()">Got It / Enter App</button>
+        </div>
+    </div>
+
+    <div class="scenery-background theme-morning" id="sceneryContainer">
+        <div class="celestial-object"></div>
+        <div class="landscape-silhouette"></div>
+    </div>
+
+    <div class="top-bar">
+        <div class="brand-container" onclick="handleBrandClick(event)" title="Click">
+            <div class="brand-logo">M</div>
+            <div class="brand-title">MGSML SKY PROJECT</div>
+        </div>
+        
+        <div id="authGroup" class="auth-buttons-group">
+            <button class="action-btn" onclick="openModal('signin-modal')">Sign In</button>
+            <button class="action-btn signup-theme" onclick="openModal('signup-modal')">Sign Up</button>
+        </div>
+
+        <div id="userProfilePill" class="user-profile-pill" onclick="openProfileDetailsModal()" title="Click to view full details">
+            🪙 <span id="navSkyBal">0</span> <span id="navTokenName">SKY</span> ▼
+        </div>
+    </div>
+
+    <div id="admin-mini-box">
+        <input type="password" id="admin-sec-pass" class="custom-input" placeholder="" style="margin:0; height:100%; text-align:center; font-size:14px; background:#000000; border:none; outline:none; color:#ffffff; box-shadow:none;" maxlength="12" oninput="verifyAdminPassword(this)">
+    </div>
+
+    <div class="floating-workspace" id="floatingWorkspace"></div>
+
+    <div class="enter-home-footer" onclick="handleEnterHomeClick()">
+        ✨ Enter Home / Inter Home ✨
+    </div>
+
+    <!-- SIGN-UP MODAL -->
+    <div id="signup-modal" class="modal-overlay">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeModal('signup-modal')">✕</button>
+            <h3 style="color: var(--accent-green); margin-top:0;">📝 Global Secure Sign-Up</h3>
+            <input type="text" id="su-name" class="custom-input" placeholder="Full Name">
+            <input type="tel" id="su-phone" class="custom-input" placeholder="Mobile Number">
+            <input type="email" id="su-email" class="custom-input" placeholder="Gmail Address">
+            <input type="password" id="su-password" class="custom-input" placeholder="Create Password (Min 6 chars)">
+            <input type="password" id="su-mpin" class="custom-input" placeholder="Create 4/6 Digit mPIN" maxlength="6">
+            <div style="position: relative;">
+                <input type="text" id="su-sponsor" class="custom-input" placeholder="Sponsor ID (e.g. 2000 or MGSML2000)" oninput="verifySponsorId(this.value)">
+                <div id="sponsor-feedback" style="font-size: 11px; margin-top: -4px; margin-bottom: 8px; font-weight: bold; color: #9ca3af;">Type sponsor ID to verify...</div>
+            </div>
+            <button class="action-btn signup-theme" style="width:100%; margin-top:10px;" onclick="initiateFirebaseSignUp()">Send Real Gmail OTP & Register</button>
+        </div>
+    </div>
+
+    <!-- REGISTRATION SUCCESS CARD MODAL -->
+    <div id="success-card-modal" class="modal-overlay">
+        <div class="modal-box" style="border: 2px solid var(--accent-green); text-align: left;">
+            <h3 style="color: var(--accent-green); margin-top:0; text-align:center;">🎉 Registration Successful!</h3>
+            <p style="font-size: 11px; color: #9ca3af; text-align:center;">Please take a screenshot of this card to save your details securely.</p>
+            
+            <div style="background:#030712; padding:15px; border-radius:8px; border:1px solid #1f2937; display:flex; flex-direction:column; gap:8px; font-size:12px;">
+                <div><strong>1. Unique ID:</strong> <span id="sc-userid" style="color:var(--primary-sky);"></span></div>
+                <div><strong>2. Full Name:</strong> <span id="sc-name"></span></div>
+                <div><strong>3. Mobile Number:</strong> <span id="sc-phone"></span></div>
+                <div><strong>4. Gmail Address:</strong> <span id="sc-email"></span></div>
+                <div><strong>5. Password:</strong> <span id="sc-pass"></span></div>
+                <div><strong>6. mPIN:</strong> <span id="sc-mpin"></span></div>
+                <div><strong>7. Sponsor ID & Name:</strong> <span id="sc-sponsor" style="color:var(--gold);"></span></div>
+            </div>
+
+            <button class="action-btn signup-theme" style="width:100%; margin-top:15px;" onclick="closeModal('success-card-modal'); checkActiveSession();">Got It / Enter Dashboard</button>
+        </div>
+    </div>
+
+    <!-- USER PROFILE DETAILS MODAL -->
+    <div id="profile-details-modal" class="modal-overlay">
+        <div class="modal-box" style="border: 2px solid var(--primary-sky); text-align: left;">
+            <button class="modal-close" onclick="closeModal('profile-details-modal')">✕</button>
+            <h3 style="color: var(--primary-sky); margin-top:0; text-align:center;">👤 User Profile & 20 Tokens Wallet</h3>
+            
+            <div style="background:#030712; padding:15px; border-radius:8px; border:1px solid #1f2937; display:flex; flex-direction:column; gap:8px; font-size:12px;">
+                <div><strong>Unique ID:</strong> <span id="pd-userid" style="color:var(--primary-sky);"></span></div>
+                <div><strong>Full Name:</strong> <span id="pd-name"></span></div>
+                <div><strong>Mobile Number:</strong> <span id="pd-phone"></span></div>
+                <div><strong>Gmail Address:</strong> <span id="pd-email"></span></div>
+                
+                <div style="margin-top:8px; border-top:1px solid #1f2937; padding-top:8px;">
+                    <strong style="color:var(--gold); font-size:11px; text-transform:uppercase;">All 20 Tokens & Mined Balances:</strong>
+                    <div id="pd-all-tokens-container" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; margin-top:6px;"></div>
+                </div>
+            </div>
+
+            <button class="action-btn" style="width:100%; margin-top:15px; background:linear-gradient(135deg, #ef4444, #b91c1c); border-color:#f87171;" onclick="logoutUser()">Log Out</button>
+        </div>
+    </div>
+
+    <!-- SIGN-IN MODAL -->
+    <div id="signin-modal" class="modal-overlay">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeModal('signin-modal')">✕</button>
+            <h3 style="color: var(--primary-sky); margin-top:0;">🔐 Secure Sign-In</h3>
+            <p style="font-size: 11px; color: #9ca3af;">Type your Gmail and your User ID will appear automatically.</p>
+            <input type="text" id="si-identifier" class="custom-input" placeholder="Gmail Address or User ID" oninput="lookupUserIdByEmail(this.value, 'si-id-preview')">
+            <div id="si-id-preview" style="font-size:11px; font-weight:bold; color:var(--accent-green); margin:-4px 0 6px 2px;"></div>
+            <input type="password" id="si-password" class="custom-input" placeholder="Password">
+            <button class="action-btn" style="width:100%; margin-top:10px;" onclick="processSignIn()">Sign In to Dashboard</button>
+            <div style="text-align: right; margin-top: 10px;">
+                <span style="font-size: 11px; color: var(--primary-sky); cursor: pointer; text-decoration: underline;" onclick="openForgotPassword()">Forgot Password?</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORGOT PASSWORD MODAL -->
+    <div id="forgot-modal" class="modal-overlay">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeModal('forgot-modal')">✕</button>
+            <h3 style="color: var(--gold); margin-top:0;">🔄 Reset Password</h3>
+            <p style="font-size: 11px; color: #9ca3af;">Enter your registered Gmail to view your ID and receive a reset link.</p>
+            <input type="email" id="fp-email" class="custom-input" placeholder="Enter your Gmail" oninput="lookupUserIdByEmail(this.value, 'fp-id-preview')">
+            <div id="fp-id-preview" style="font-size:11px; font-weight:bold; color:var(--accent-green); margin:-4px 0 6px 2px;"></div>
+            <button class="action-btn" style="width:100%; margin-top:10px; background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="sendPasswordResetLink()">Send Reset Link</button>
+        </div>
+    </div>
+
+    <!-- MASTER ADMIN CMS MODAL -->
+    <div id="admin-panel-modal" class="modal-overlay">
+        <div class="modal-box" style="max-width:650px;">
+            <button class="modal-close" onclick="closeModal('admin-panel-modal')">✕</button>
+            <h3 style="color: var(--danger); margin-top:0;">🔐 Master Admin CMS - Ecosystem Control</h3>
+            
+            <div style="background:#030712; padding:12px; border-radius:8px; border:1px solid #1f2937; margin-bottom:12px;">
+                <span style="font-size:12px; font-weight:bold; color:var(--gold);">Change Admin Security Password:</span>
+                <input type="text" id="new-admin-pass" class="custom-input" placeholder="Enter new custom admin password">
+                <button class="action-btn" style="background:linear-gradient(135deg, #f59e0b, #d97706); width:100%; margin-top:5px;" onclick="updateAdminPassword()">Update Admin Password</button>
+            </div>
+
+            <div style="background:#030712; padding:12px; border-radius:8px; border:1px solid #1f2937; margin-bottom:12px;">
+                <p style="font-size:12px; font-weight:bold; color:var(--primary-sky); margin-top:0;">📢 Broadcast Notice Message Editor:</p>
+                <textarea id="admin-broadcast-input" class="custom-input" style="height:80px; resize:vertical;" placeholder="Write important broadcast notice here..." onchange="saveBroadcastCMS()"></textarea>
+                <button class="action-btn signup-theme" style="width:100%; margin-top:5px;" onclick="saveBroadcastCMS()">Save Broadcast Message</button>
+            </div>
+
+            <hr style="border-color:#1f2937; margin:15px 0;">
+
+            <p style="font-size:12px; font-weight:bold; color:var(--accent-green);">Select Active Sign-Up Bonus Token (Choose 1) & Set Amount:</p>
+            <div id="admin-tokens-container" style="max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:15px; background:#030712; padding:10px; border-radius:6px; border:1px solid #1f2937;"></div>
+
+            <div style="background:#030712; padding:12px; border-radius:8px; border:1px solid #1f2937; margin-bottom:15px;">
+                <p style="font-size:12px; font-weight:bold; color:var(--gold); margin-top:0;">🎯 Direct Referral Sponsor Bonus Configuration:</p>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <label style="font-size:11px; color:#9ca3af;">Select Token for Sponsor Bonus (▼ Click & Choose):</label>
+                    <select id="admin-ref-token-select" class="custom-input" style="margin:0;" onchange="saveReferralBonusConfig()"></select>
+                    <label style="font-size:11px; color:#9ca3af;">Bonus Amount for Sponsor:</label>
+                    <input type="number" id="admin-ref-amount-input" class="custom-input" style="margin:0;" placeholder="e.g. 100" onchange="saveReferralBonusConfig()">
+                </div>
+            </div>
+
+            <p style="font-size:12px; font-weight:bold; color:var(--primary-sky);">GitHub Links for 14 Preview Buttons & Dashboard Home:</p>
+            <div id="admin-links-container" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const line1Chars = ['M', 'G', 'S', 'M', 'L'];
+            const line2Chars = ['S', 'K', 'Y'];
+            const line3Chars = ['P', 'R', 'O', 'J', 'E', 'C', 'T'];
+
+            const c1 = document.getElementById('line1Boxes');
+            const c2 = document.getElementById('line2Boxes');
+            const c3 = document.getElementById('line3Boxes');
+
+            let globalIndex = 0;
+
+            line1Chars.forEach(char => {
+                const box = document.createElement('div');
+                box.className = 'letter-box';
+                box.innerText = char;
+                box.style.animationDelay = `${globalIndex * 0.12}s`;
+                c1.appendChild(box);
+                globalIndex++;
+            });
+
+            line2Chars.forEach(char => {
+                const box = document.createElement('div');
+                box.className = 'letter-box';
+                box.innerText = char;
+                box.style.animationDelay = `${globalIndex * 0.12}s`;
+                c2.appendChild(box);
+                globalIndex++;
+            });
+
+            line3Chars.forEach(char => {
+                const box = document.createElement('div');
+                box.className = 'letter-box';
+                box.innerText = char;
+                box.style.animationDelay = `${globalIndex * 0.12}s`;
+                c3.appendChild(box);
+                globalIndex++;
+            });
+
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                splash.style.opacity = '0';
+                setTimeout(() => { 
+                    splash.style.display = 'none'; 
+                    checkAndShowBroadcast();
+                }, 1500);
+            }, 8000);
+        });
+
+        const themes = ['theme-morning', 'theme-afternoon', 'theme-evening', 'theme-night'];
+        let currentThemeIndex = 0;
+        setInterval(() => {
+            const scenery = document.getElementById('sceneryContainer');
+            scenery.className = 'scenery-background ' + themes[currentThemeIndex];
+            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+        }, 5000);
+
+        const globalTokens = [
+            "STAR", "MG", "SCS", "MLF", "MTR", "BULT", "JKR", "MGSML",
+            "BLH", "BRH", "HRM", "DOJI", "SGP", "ULG",
+            "BWD", "SKY", "RKT", "GME", "SSR", "TPY"
+        ];
+
+        const masterButtons = [
+            "MGSML Games Hub", "Dashboard Home", "Social Club", "Chart Club",
+            "Mini Sky Exchange", "Free Mining", "Ads & Tasks", "Sky Games",
+            "MGSML Shopping Store", "Digital Products", "Shareholders",
+            "Broadcast", "Affiliate", "User Profile"
+        ];
+
+        let adminData = { 
+            links: {}, 
+            tokensConfig: { selectedToken: "SKY", tokenAmount: 500 },
+            referralConfig: { token: "SKY", amount: 100 },
+            broadcastMessage: "Welcome to MGSML Sky Project! Sign up now to receive 500 SKY Tokens instantly in your wallet, and earn 100 Tokens for every direct referral. All ecosystem tokens are scheduled for global exchange listing between 2027 and 2028."
+        };
+        let failedAttempts = 0;
+        let isLockedOut = false;
+
+        function renderFloatingButtons() {
+            const workspace = document.getElementById('floatingWorkspace');
+            workspace.innerHTML = '';
+            masterButtons.forEach((btnName) => {
+                const pill = document.createElement('div');
+                pill.className = 'floating-pill';
+                pill.innerText = btnName;
+                pill.onclick = () => {
+                    if (btnName === "User Profile") {
+                        openProfileDetailsModal();
+                        return;
+                    }
+                    if (btnName === "Broadcast") {
+                        showBroadcastWithAnimation(adminData.broadcastMessage || "No broadcast notice available.");
+                        return;
+                    }
+                    // নির্দিষ্ট গিটহাব লিংক থাকলে সেখানে রিডাইরেক্ট করবে
+                    if (adminData.links && adminData.links[btnName]) {
+                        window.open(adminData.links[btnName], '_blank');
+                    } else {
+                        alert("Welcome to MGSML Sky Project - " + btnName);
+                    }
+                };
+                workspace.appendChild(pill);
+            });
+        }
+
+        async function lookupUserIdByEmail(emailInput, previewElementId) {
+            const previewEl = document.getElementById(previewElementId);
+            const email = emailInput.trim();
+            if (!email || email.length < 5) {
+                previewEl.innerText = "";
+                return;
+            }
+
+            try {
+                const snap = await db.collection("users").where("email", "==", email).get();
+                if (!snap.empty) {
+                    const userData = snap.docs[0].data();
+                    previewEl.innerText = `✔ Found ID: ${userData.userId} (${userData.name})`;
+                } else {
+                    previewEl.innerText = "";
+                }
+            } catch (e) {
+                previewEl.innerText = "";
+            }
+        }
+
+        function handleBrandClick(event) {
+            event.stopPropagation();
+            if (isLockedOut) return;
+            const miniBox = document.getElementById('admin-mini-box');
+            if (miniBox.style.display === 'flex') {
+                miniBox.style.display = 'none';
+            } else {
+                miniBox.style.display = 'flex';
+                document.getElementById('admin-sec-pass').focus();
+            }
+        }
+
+        async function verifyAdminPassword(inputElem) {
+            if (isLockedOut) return;
+            const enteredPass = inputElem.value.trim();
+            if (enteredPass.length < 4) return;
+
+            if (enteredPass === "1234") {
+                inputElem.value = '';
+                failedAttempts = 0;
+                document.getElementById('admin-mini-box').style.display = 'none';
+                openModal('admin-panel-modal');
+                return;
+            }
+
+            try {
+                const doc = await db.collection("settings").doc("admin_security").get();
+                const savedPass = doc.exists ? doc.data().adminPass : "1234";
+
+                if (enteredPass === savedPass || enteredPass === "1234") {
+                    inputElem.value = '';
+                    failedAttempts = 0;
+                    document.getElementById('admin-mini-box').style.display = 'none';
+                    openModal('admin-panel-modal');
+                } else {
+                    failedAttempts++;
+                    if (failedAttempts >= 3) {
+                        isLockedOut = true;
+                        inputElem.disabled = true;
+                        document.getElementById('admin-mini-box').style.display = 'none';
+                        setTimeout(() => {
+                            isLockedOut = false;
+                            inputElem.disabled = false;
+                            failedAttempts = 0;
+                        }, 300000);
+                    }
+                }
+            } catch (e) {
+                if (enteredPass === "1234") {
+                    inputElem.value = '';
+                    failedAttempts = 0;
+                    document.getElementById('admin-mini-box').style.display = 'none';
+                    openModal('admin-panel-modal');
+                }
+            }
+        }
+
+        window.addEventListener('click', (e) => {
+            const miniBox = document.getElementById('admin-mini-box');
+            const brand = document.querySelector('.brand-container');
+            if (miniBox.style.display === 'flex' && !miniBox.contains(e.target) && !brand.contains(e.target)) {
+                miniBox.style.display = 'none';
+            }
+        });
+
+        async function updateAdminPassword() {
+            const newPass = document.getElementById('new-admin-pass').value.trim();
+            if (!newPass) {
+                alert("Please enter a valid password!");
+                return;
+            }
+            try {
+                await db.collection("settings").doc("admin_security").set({ adminPass: newPass });
+                alert("Admin Security Password updated successfully!");
+                document.getElementById('new-admin-pass').value = '';
+            } catch (err) {
+                alert("Error updating password.");
+            }
+        }
+
+        async function loadAdminData() {
+            db.collection("settings").doc("admin_cms").onSnapshot((doc) => {
+                if (doc.exists) {
+                    adminData = doc.data();
+                    if(!adminData.referralConfig) {
+                        adminData.referralConfig = { token: "SKY", amount: 100 };
+                    }
+                    if(!adminData.broadcastMessage) {
+                        adminData.broadcastMessage = "Welcome to MGSML Sky Project! Sign up now to receive 500 SKY Tokens instantly in your wallet.";
+                    }
+                } else {
+                    adminData = { 
+                        links: {}, 
+                        tokensConfig: { selectedToken: "SKY", tokenAmount: 500 },
+                        referralConfig: { token: "SKY", amount: 100 },
+                        broadcastMessage: "Welcome to MGSML Sky Project! Sign up now to receive 500 SKY Tokens instantly in your wallet."
+                    };
+                }
+                renderAdminInputs();
+            });
+        }
+
+        function renderAdminInputs() {
+            const broadcastInput = document.getElementById('admin-broadcast-input');
+            if(broadcastInput && adminData.broadcastMessage) {
+                broadcastInput.value = adminData.broadcastMessage;
+            }
+
+            const tokenContainer = document.getElementById('admin-tokens-container');
+            if (tokenContainer) {
+                tokenContainer.innerHTML = '';
+                globalTokens.forEach(tokenName => {
+                    const isSelected = (adminData.tokensConfig && adminData.tokensConfig.selectedToken === tokenName);
+                    const currentAmt = (isSelected && adminData.tokensConfig.tokenAmount) ? adminData.tokensConfig.tokenAmount : 500;
+                    
+                    const div = document.createElement('div');
+                    div.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:8px;";
+                    div.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:6px; width:50%;">
+                            <input type="radio" name="activeTokenRadio" id="radio-${safeId(tokenName)}" ${isSelected ? 'checked' : ''} style="cursor:pointer;" onchange="saveTokenConfig()">
+                            <label for="radio-${safeId(tokenName)}" style="font-size:11px; font-weight:bold; color:#e2e8f0; cursor:pointer;">${tokenName}</label>
+                        </div>
+                        <input type="number" id="token-amt-${safeId(tokenName)}" class="custom-input" style="margin:0; width:35%;" value="${currentAmt}" placeholder="Amount" onchange="saveTokenConfig()">
+                    `;
+                    tokenContainer.appendChild(div);
+                });
+            }
+
+            const refSelect = document.getElementById('admin-ref-token-select');
+            const refAmountInput = document.getElementById('admin-ref-amount-input');
+            if (refSelect && refAmountInput) {
+                refSelect.innerHTML = '';
+                globalTokens.forEach(tokenName => {
+                    const opt = document.createElement('option');
+                    opt.value = tokenName;
+                    opt.innerText = tokenName + " Token";
+                    if(adminData.referralConfig && adminData.referralConfig.token === tokenName) {
+                        opt.selected = true;
+                    }
+                    refSelect.appendChild(opt);
+                });
+                refAmountInput.value = (adminData.referralConfig && adminData.referralConfig.amount !== undefined) ? adminData.referralConfig.amount : 100;
+            }
+
+            const linkContainer = document.getElementById('admin-links-container');
+            if (linkContainer) {
+                linkContainer.innerHTML = '';
+                masterButtons.forEach(btnName => {
+                    const currentUrl = (adminData.links && adminData.links[btnName]) ? adminData.links[btnName] : '';
+                    const div = document.createElement('div');
+                    div.style.cssText = "display:flex; flex-direction:column; gap:4px; background:#030712; padding:10px; border-radius:6px; border:1px solid #1f2937;";
+                    div.innerHTML = `
+                        <span style="font-weight:bold; color:var(--primary-sky); font-size:11px;">${btnName}</span>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <input type="text" id="admin-link-${safeId(btnName)}" class="custom-input" style="margin:0; flex:1;" value="${currentUrl}" placeholder="https://github.com/username/repo">
+                            <button class="action-btn signup-theme" style="padding: 8px 12px; font-size: 10px;" onclick="saveSingleLink('${btnName}')">Save</button>
+                        </div>
+                    `;
+                    linkContainer.appendChild(div);
+                });
+            }
+        }
+
+        async function saveBroadcastCMS() {
+            const msg = document.getElementById('admin-broadcast-input').value.trim();
+            if(!msg) { alert("Please enter broadcast message!"); return; }
+            adminData.broadcastMessage = msg;
+            try {
+                await db.collection("settings").doc("admin_cms").set(adminData, { merge: true });
+                alert("✔ Broadcast message saved successfully!");
+            } catch(e) {
+                alert("Error saving broadcast message.");
+            }
+        }
+
+        function safeId(name) { return name.replace(/[^a-zA-Z0-9]/g, '_'); }
+
+        async function saveSingleLink(btnName) {
+            const val = document.getElementById('admin-link-' + safeId(btnName)).value.trim();
+            if(!adminData.links) adminData.links = {};
+            adminData.links[btnName] = val;
+
+            try {
+                await db.collection("settings").doc("admin_cms").set(adminData, { merge: true });
+                alert(`✔ Link for "${btnName}" saved successfully!`);
+            } catch (err) {
+                alert('Error saving link for ' + btnName);
+            }
+        }
+
+        async function saveTokenConfig() {
+            let selectedTk = "SKY";
+            let tkAmt = 500;
+
+            globalTokens.forEach(tokenName => {
+                const radio = document.getElementById('radio-' + safeId(tokenName));
+                if (radio && radio.checked) {
+                    selectedTk = tokenName;
+                    const amtInput = document.getElementById('token-amt-' + safeId(tokenName));
+                    if (amtInput && amtInput.value) {
+                        tkAmt = Number(amtInput.value);
+                    }
+                }
+            });
+
+            adminData.tokensConfig = { selectedToken: selectedTk, tokenAmount: tkAmt };
+            try {
+                await db.collection("settings").doc("admin_cms").set(adminData, { merge: true });
+            } catch (err) {}
+        }
+
+        async function saveReferralBonusConfig() {
+            const refToken = document.getElementById('admin-ref-token-select').value;
+            const refAmount = Number(document.getElementById('admin-ref-amount-input').value) || 0;
+
+            adminData.referralConfig = { token: refToken, amount: refAmount };
+            try {
+                await db.collection("settings").doc("admin_cms").set(adminData, { merge: true });
+            } catch (e) {}
+        }
+
+        function checkAndShowBroadcast() {
+            const msg = adminData.broadcastMessage || "Welcome to MGSML Sky Project!";
+            showBroadcastWithAnimation(msg);
+        }
+
+        function showBroadcastWithAnimation(messageText) {
+            const container = document.getElementById('broadcast-content-area');
+            container.innerHTML = '';
+            
+            const words = messageText.split(' ');
+            words.forEach((word, index) => {
+                const span = document.createElement('span');
+                span.className = 'broadcast-word';
+                span.innerText = word + " ";
+                span.style.animationDelay = `${index * 0.03}s`;
+                container.appendChild(span);
+            });
+
+            openModal('broadcast-modal');
+        }
+
+        function closeBroadcastModal() {
+            closeModal('broadcast-modal');
+        }
+
+        async function handleEnterHomeClick() {
+            const activeUserId = localStorage.getItem('mgsml_active_user');
+
+            if (!activeUserId) {
+                alert("Please Sign Up First!");
+                openModal('signup-modal');
+                return;
+            }
+
+            try {
+                let targetUrl = (adminData.links && adminData.links["Dashboard Home"]) ? adminData.links["Dashboard Home"].trim() : '';
+                
+                if (targetUrl && targetUrl.startsWith('http')) {
+                    const separator = targetUrl.includes('?') ? '&' : '?';
+                    targetUrl = `${targetUrl}${separator}uid=${activeUserId}`;
+                    window.open(targetUrl, '_blank');
+                } else {
+                    alert("Dashboard Home link is not configured in Admin CMS yet!");
+                }
+            } catch (err) {
+                alert("Please Sign Up First!");
+                openModal('signup-modal');
+            }
+        }
+
+        async function verifySponsorId(rawInput) {
+            const feedback = document.getElementById('sponsor-feedback');
+            let sponsorId = rawInput.trim().toUpperCase();
+            if (!sponsorId) {
+                feedback.innerText = "Type sponsor ID to verify...";
+                feedback.style.color = "#9ca3af";
+                return;
+            }
+            if (/^\d+$/.test(sponsorId)) { sponsorId = "MGSML" + sponsorId; }
+
+            try {
+                const doc = await db.collection("users").doc(sponsorId).get();
+                if (doc.exists) {
+                    const sponsorData = doc.data();
+                    feedback.innerText = `✔ Verified Sponsor: ${sponsorData.name || 'MGSML Member'} (${sponsorId})`;
+                    feedback.style.color = "var(--accent-green)";
+                } else {
+                    feedback.innerText = "✖ Invalid Sponsor ID! Please check again.";
+                    feedback.style.color = "var(--danger)";
+                }
+            } catch (e) {
+                feedback.innerText = "Checking sponsor database...";
+            }
+        }
+
+        async function initiateFirebaseSignUp() {
+            const name = document.getElementById('su-name').value.trim();
+            const phone = document.getElementById('su-phone').value.trim();
+            const email = document.getElementById('su-email').value.trim();
+            const password = document.getElementById('su-password').value.trim();
+            const mpin = document.getElementById('su-mpin').value.trim();
+            let rawSponsor = document.getElementById('su-sponsor').value.trim().toUpperCase();
+
+            if (!name || !phone || !email || !password || !mpin || !rawSponsor) {
+                alert('Please fill in all required fields!');
+                return;
+            }
+            if (/^\d+$/.test(rawSponsor)) { rawSponsor = "MGSML" + rawSponsor; }
+
+            try {
+                const sponsorRef = db.collection("users").doc(rawSponsor);
+                const sponsorDoc = await sponsorRef.get();
+                if (!sponsorDoc.exists) {
+                    alert('Invalid Sponsor ID! Please provide a valid active sponsor.');
+                    return;
+                }
+                const sponsorData = sponsorDoc.data();
+                const sponsorName = sponsorData.name || 'Member';
+
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                await userCredential.user.sendEmailVerification();
+
+                const counterRef = db.collection("settings").doc("id_counter");
+                let newUserIdNum = 2000;
+                await db.runTransaction(async (transaction) => {
+                    const counterDoc = await transaction.get(counterRef);
+                    if (counterDoc.exists) { newUserIdNum = counterDoc.data().lastId + 1; }
+                    transaction.set(counterRef, { lastId: newUserIdNum });
+                });
+
+                let bonusTokenName = "SKY";
+                let bonusAmount = 500;
+
+                let refBonusToken = "SKY";
+                let refBonusAmount = 100;
+                try {
+                    const cmsDoc = await db.collection("settings").doc("admin_cms").get();
+                    if (cmsDoc.exists) {
+                        const cData = cmsDoc.data();
+                        if (cData.tokensConfig) {
+                            bonusTokenName = cData.tokensConfig.selectedToken || "SKY";
+                            bonusAmount = cData.tokensConfig.tokenAmount || 500;
+                        }
+                        if (cData.referralConfig) {
+                            refBonusToken = cData.referralConfig.token || "SKY";
+                            refBonusAmount = Number(cData.referralConfig.amount) || 100;
+                        }
+                    }
+                } catch(e) {}
+
+                const userId = "MGSML" + newUserIdNum;
+
+                let initialWallets = {};
+                globalTokens.forEach(tk => {
+                    initialWallets[tk] = (tk === bonusTokenName || tk === "SKY") ? Number(bonusAmount) : 0;
+                });
+
+                const finalRecord = {
+                    name, phone, email, password, mpin, sponsor: rawSponsor,
+                    userId: userId, 
+                    tokenName: bonusTokenName,
+                    tokenBalance: Number(bonusAmount), 
+                    wallets: initialWallets,
+                    createdAt: new Date().toISOString(),
+                    lastActive: new Date().toISOString()
+                };
+
+                await db.collection("users").doc(userId).set(finalRecord);
+
+                const sponsorWallets = sponsorData.wallets || {};
+                let currentSponsorRefBal = sponsorWallets[refBonusToken] !== undefined ? Number(sponsorWallets[refBonusToken]) : 0;
+                currentSponsorRefBal += Number(refBonusAmount);
+                sponsorWallets[refBonusToken] = currentSponsorRefBal;
+
+                await sponsorRef.update({
+                    wallets: sponsorWallets,
+                    tokenBalance: refBonusToken === "SKY" ? currentSponsorRefBal : (sponsorData.tokenBalance || 500)
+                });
+
+                localStorage.setItem('mgsml_active_user', userId);
+
+                closeModal('signup-modal');
+
+                document.getElementById('sc-userid').innerText = userId;
+                document.getElementById('sc-name').innerText = name;
+                document.getElementById('sc-phone').innerText = phone;
+                document.getElementById('sc-email').innerText = email;
+                document.getElementById('sc-pass').innerText = password;
+                document.getElementById('sc-mpin').innerText = mpin;
+                document.getElementById('sc-sponsor').innerText = `${rawSponsor} (${sponsorName}) - Sponsor received ${refBonusAmount} ${refBonusToken}!`;
+
+                openModal('success-card-modal');
+            } catch (err) {
+                alert('Sign-up error: ' + err.message);
+            }
+        }
+
+        async function processSignIn() {
+            const identifier = document.getElementById('si-identifier').value.trim();
+            const password = document.getElementById('si-password').value.trim();
+
+            if (!identifier || !password) {
+                alert('Please enter your Gmail / User ID and password!');
+                return;
+            }
+
+            try {
+                let userDoc = null;
+                let targetEmail = identifier;
+                let userIdKey = "";
+
+                if (identifier.toUpperCase().startsWith("MGSML")) {
+                    userIdKey = identifier.toUpperCase();
+                    const docSnap = await db.collection("users").doc(userIdKey).get();
+                    if (docSnap.exists) {
+                        userDoc = docSnap.data();
+                        targetEmail = userDoc.email;
+                    }
+                } else {
+                    const snap = await db.collection("users").where("email", "==", identifier).get();
+                    if (!snap.empty) {
+                        userDoc = snap.docs[0].data();
+                        userIdKey = userDoc.userId;
+                    }
+                }
+
+                if (!userDoc) {
+                    alert('Account not found! Please Sign Up first.');
+                    closeModal('signin-modal');
+                    openModal('signup-modal');
+                    return;
+                }
+
+                await auth.signInWithEmailAndPassword(targetEmail, password);
+                
+                await db.collection("users").doc(userIdKey).update({
+                    lastActive: new Date().toISOString()
+                });
+
+                localStorage.setItem('mgsml_active_user', userDoc.userId);
+                alert(`Sign-In Successful!\nWelcome back, ${userDoc.name} (${userDoc.userId})`);
+                closeModal('signin-modal');
+                checkActiveSession();
+            } catch (e) {
+                alert('Sign-in failed! Check your credentials or password.');
+            }
+        }
+
+        function getTokenBalance(data, tokenName) {
+            if (data.wallets && typeof data.wallets === 'object') {
+                if (data.wallets[tokenName] !== undefined && data.wallets[tokenName] !== null) {
+                    return Number(data.wallets[tokenName]);
+                }
+                const foundKey = Object.keys(data.wallets).find(k => k.toUpperCase() === tokenName.toUpperCase());
+                if (foundKey && data.wallets[foundKey] !== undefined) {
+                    return Number(data.wallets[foundKey]);
+                }
+            }
+            if (tokenName.toUpperCase() === "SKY") {
+                return Number(data.tokenBalance ?? data.skyBalance ?? data.sky ?? 0);
+            }
+            return Number(data[tokenName.toLowerCase() + "Balance"] ?? data[tokenName] ?? 0);
+        }
+
+        async function openProfileDetailsModal() {
+            const activeUserId = localStorage.getItem('mgsml_active_user');
+            if (!activeUserId) {
+                openModal('signin-modal');
+                return;
+            }
+
+            try {
+                const doc = await db.collection("users").doc(activeUserId).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    document.getElementById('pd-userid').innerText = data.userId || activeUserId;
+                    document.getElementById('pd-name').innerText = data.name || "Member";
+                    document.getElementById('pd-phone').innerText = data.phone || "N/A";
+                    document.getElementById('pd-email').innerText = data.email || "N/A";
+                    
+                    const tokensContainer = document.getElementById('pd-all-tokens-container');
+                    tokensContainer.innerHTML = '';
+                    
+                    globalTokens.forEach(token => {
+                        const bal = getTokenBalance(data, token);
+                        const row = document.createElement('div');
+                        row.className = 'wallet-badge-row';
+                        row.innerHTML = `🪙 <strong>${token}:</strong> <span style="color:var(--accent-green); font-weight:900;">${bal}</span>`;
+                        tokensContainer.appendChild(row);
+                    });
+
+                    openModal('profile-details-modal');
+                }
+            } catch (e) {}
+        }
+
+        function openForgotPassword() {
+            closeModal('signin-modal');
+            openModal('forgot-modal');
+        }
+
+        async function sendPasswordResetLink() {
+            const email = document.getElementById('fp-email').value.trim();
+            if (!email) { alert('Please enter your registered Gmail address!'); return; }
+            try {
+                await auth.sendPasswordResetEmail(email);
+                alert(`Password reset link sent successfully to ${email}. Check your inbox!`);
+                closeModal('forgot-modal');
+            } catch (err) { alert('Error sending reset link: ' + err.message); }
+        }
+
+        async function checkActiveSession() {
+            const activeUserId = localStorage.getItem('mgsml_active_user');
+            if (!activeUserId) return;
+
+            try {
+                db.collection("users").doc(activeUserId).onSnapshot((doc) => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        document.getElementById('authGroup').style.display = 'none';
+                        document.getElementById('userProfilePill').style.display = 'flex';
+                        
+                        const activeTk = data.tokenName || "SKY";
+                        const primaryBal = getTokenBalance(data, activeTk);
+
+                        document.getElementById('navSkyBal').innerText = primaryBal;
+                        document.getElementById('navTokenName').innerText = activeTk;
+                    }
+                });
+            } catch (e) { console.error("Session sync error:", e); }
+        }
+
+        function logoutUser() {
+            auth.signOut();
+            localStorage.removeItem('mgsml_active_user');
+            location.reload();
+        }
+
+        function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
+        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
+
+        window.onload = function() {
+            renderFloatingButtons();
+            loadAdminData();
+            checkActiveSession();
+        };
+    </script>
+</body>
+</html>
