@@ -294,7 +294,10 @@
             <input type="text" id="su-name" class="custom-input" placeholder="Full Name">
             <input type="tel" id="su-phone" class="custom-input" placeholder="Mobile Number">
             <input type="email" id="su-email" class="custom-input" placeholder="Gmail Address">
-            <input type="password" id="su-password" class="custom-input" placeholder="Create Password (Min 6 chars)">
+            <div style="position: relative; display: flex; align-items: center;">
+                <input type="password" id="su-password" class="custom-input" style="padding-right: 65px;" placeholder="Create Password (Min 6 chars)">
+                <button type="button" id="toggle-su-pass-btn" onclick="togglePasswordVisibility('su-password', 'toggle-su-pass-btn')" style="position: absolute; right: 8px; background: #1f2937; color: #10b981; border: 1px solid #374151; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: 800; cursor: pointer;">SHOW</button>
+            </div>
             <input type="password" id="su-mpin" class="custom-input" placeholder="Create 4/6 Digit mPIN" maxlength="6">
             <div style="position: relative;">
                 <input type="text" id="su-sponsor" class="custom-input" placeholder="Sponsor ID (e.g. 2000 or MGSML2000)" oninput="verifySponsorId(this.value)">
@@ -352,9 +355,16 @@
             <button class="modal-close" onclick="closeModal('signin-modal')">✕</button>
             <h3 style="color: var(--primary-sky); margin-top:0;">🔐 Secure Sign-In</h3>
             <p style="font-size: 11px; color: #9ca3af;">Type your Gmail and your User ID will appear automatically.</p>
-            <input type="text" id="si-identifier" class="custom-input" placeholder="Gmail Address or User ID" oninput="lookupUserIdByEmail(this.value, 'si-id-preview')">
+            <input type="text" id="si-identifier" class="custom-input" placeholder="Gmail Address or User ID" oninput="lookupUserIdByEmail(this.value, 'si-id-preview'); clearSignInError();">
             <div id="si-id-preview" style="font-size:11px; font-weight:bold; color:var(--accent-green); margin:-4px 0 6px 2px;"></div>
-            <input type="password" id="si-password" class="custom-input" placeholder="Password">
+
+            <div style="position: relative; display: flex; align-items: center;">
+                <input type="password" id="si-password" class="custom-input" style="padding-right: 65px;" placeholder="Password" oninput="clearSignInError()">
+                <button type="button" id="toggle-si-pass-btn" onclick="togglePasswordVisibility('si-password', 'toggle-si-pass-btn')" style="position: absolute; right: 8px; background: #1f2937; color: #38bdf8; border: 1px solid #374151; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: 800; cursor: pointer;">SHOW</button>
+            </div>
+
+            <div id="si-error-msg" style="display: none; color: #ef4444; background: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444; padding: 8px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; margin-top: 4px;"></div>
+
             <button class="action-btn" style="width:100%; margin-top:10px;" onclick="processSignIn()">Sign In to Dashboard</button>
             <div style="text-align: right; margin-top: 10px;">
                 <span style="font-size: 11px; color: var(--primary-sky); cursor: pointer; text-decoration: underline;" onclick="openForgotPassword()">Forgot Password?</span>
@@ -368,8 +378,9 @@
             <button class="modal-close" onclick="closeModal('forgot-modal')">✕</button>
             <h3 style="color: var(--gold); margin-top:0;">🔄 Reset Password</h3>
             <p style="font-size: 11px; color: #9ca3af;">Enter your registered Gmail to view your ID and receive a reset link.</p>
-            <input type="email" id="fp-email" class="custom-input" placeholder="Enter your Gmail" oninput="lookupUserIdByEmail(this.value, 'fp-id-preview')">
+            <input type="email" id="fp-email" class="custom-input" placeholder="Enter your Gmail" oninput="lookupUserIdByEmail(this.value, 'fp-id-preview'); clearForgotError();">
             <div id="fp-id-preview" style="font-size:11px; font-weight:bold; color:var(--accent-green); margin:-4px 0 6px 2px;"></div>
+            <div id="fp-status-msg" style="display: none; padding: 8px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; margin-top: 4px;"></div>
             <button class="action-btn" style="width:100%; margin-top:10px; background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="sendPasswordResetLink()">Send Reset Link</button>
         </div>
     </div>
@@ -413,6 +424,9 @@
     </div>
 
     <script>
+        let unsubscribeCms = null;
+        let unsubscribeSession = null;
+
         window.addEventListener('DOMContentLoaded', () => {
             const line1Chars = ['M', 'G', 'S', 'M', 'L'];
             const line2Chars = ['S', 'K', 'Y'];
@@ -453,11 +467,13 @@
 
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
-                splash.style.opacity = '0';
-                setTimeout(() => { 
-                    splash.style.display = 'none'; 
-                    checkAndShowBroadcast();
-                }, 1500);
+                if (splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => { 
+                        splash.style.display = 'none'; 
+                        checkAndShowBroadcast();
+                    }, 1500);
+                }
             }, 8000);
         });
 
@@ -465,8 +481,10 @@
         let currentThemeIndex = 0;
         setInterval(() => {
             const scenery = document.getElementById('sceneryContainer');
-            scenery.className = 'scenery-background ' + themes[currentThemeIndex];
-            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+            if (scenery) {
+                scenery.className = 'scenery-background ' + themes[currentThemeIndex];
+                currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+            }
         }, 5000);
 
         const globalTokens = [
@@ -491,8 +509,57 @@
         let failedAttempts = 0;
         let isLockedOut = false;
 
+        function togglePasswordVisibility(inputId, btnId) {
+            const inputEl = document.getElementById(inputId);
+            const btnEl = document.getElementById(btnId);
+            if (!inputEl || !btnEl) return;
+
+            if (inputEl.type === "password") {
+                inputEl.type = "text";
+                btnEl.innerText = "HIDE";
+            } else {
+                inputEl.type = "password";
+                btnEl.innerText = "SHOW";
+            }
+        }
+
+        function showSignInError(message) {
+            const errEl = document.getElementById('si-error-msg');
+            const passInput = document.getElementById('si-password');
+            const idInput = document.getElementById('si-identifier');
+            if (passInput) passInput.style.borderColor = "#ef4444";
+            if (idInput) idInput.style.borderColor = "#ef4444";
+            if (errEl) {
+                errEl.style.display = "block";
+                errEl.innerText = "❌ " + message;
+            }
+        }
+
+        function clearSignInError() {
+            const errEl = document.getElementById('si-error-msg');
+            const passInput = document.getElementById('si-password');
+            const idInput = document.getElementById('si-identifier');
+            if (passInput) passInput.style.borderColor = "#1f2937";
+            if (idInput) idInput.style.borderColor = "#1f2937";
+            if (errEl) {
+                errEl.style.display = "none";
+                errEl.innerText = "";
+            }
+        }
+
+        function clearForgotError() {
+            const statusEl = document.getElementById('fp-status-msg');
+            const emailInput = document.getElementById('fp-email');
+            if (emailInput) emailInput.style.borderColor = "#1f2937";
+            if (statusEl) {
+                statusEl.style.display = "none";
+                statusEl.innerText = "";
+            }
+        }
+
         function renderFloatingButtons() {
             const workspace = document.getElementById('floatingWorkspace');
+            if (!workspace) return;
             workspace.innerHTML = '';
             masterButtons.forEach((btnName) => {
                 const pill = document.createElement('div');
@@ -507,7 +574,6 @@
                         showBroadcastWithAnimation(adminData.broadcastMessage || "No broadcast notice available.");
                         return;
                     }
-                    // নির্দিষ্ট গিটহাব লিংক থাকলে সেখানে রিডাইরেক্ট করবে
                     if (adminData.links && adminData.links[btnName]) {
                         window.open(adminData.links[btnName], '_blank');
                     } else {
@@ -520,17 +586,21 @@
 
         async function lookupUserIdByEmail(emailInput, previewElementId) {
             const previewEl = document.getElementById(previewElementId);
-            const email = emailInput.trim();
-            if (!email || email.length < 5) {
+            if (!previewEl) return;
+            const rawEmail = emailInput.trim();
+            if (!rawEmail || rawEmail.length < 5) {
                 previewEl.innerText = "";
                 return;
             }
 
             try {
-                const snap = await db.collection("users").where("email", "==", email).get();
+                let snap = await db.collection("users").where("email", "==", rawEmail).limit(1).get();
+                if (snap.empty && rawEmail.toLowerCase() !== rawEmail) {
+                    snap = await db.collection("users").where("email", "==", rawEmail.toLowerCase()).limit(1).get();
+                }
                 if (!snap.empty) {
                     const userData = snap.docs[0].data();
-                    previewEl.innerText = `✔ Found ID: ${userData.userId} (${userData.name})`;
+                    previewEl.innerText = `✔ Found ID: ${userData.userId || snap.docs[0].id} (${userData.name || 'Member'})`;
                 } else {
                     previewEl.innerText = "";
                 }
@@ -556,19 +626,11 @@
             const enteredPass = inputElem.value.trim();
             if (enteredPass.length < 4) return;
 
-            if (enteredPass === "1234") {
-                inputElem.value = '';
-                failedAttempts = 0;
-                document.getElementById('admin-mini-box').style.display = 'none';
-                openModal('admin-panel-modal');
-                return;
-            }
-
             try {
                 const doc = await db.collection("settings").doc("admin_security").get();
-                const savedPass = doc.exists ? doc.data().adminPass : "1234";
+                const savedPass = (doc.exists && doc.data().adminPass) ? String(doc.data().adminPass).trim() : "1234";
 
-                if (enteredPass === savedPass || enteredPass === "1234") {
+                if (enteredPass === savedPass) {
                     inputElem.value = '';
                     failedAttempts = 0;
                     document.getElementById('admin-mini-box').style.display = 'none';
@@ -577,6 +639,7 @@
                     failedAttempts++;
                     if (failedAttempts >= 3) {
                         isLockedOut = true;
+                        inputElem.value = '';
                         inputElem.disabled = true;
                         document.getElementById('admin-mini-box').style.display = 'none';
                         setTimeout(() => {
@@ -587,31 +650,26 @@
                     }
                 }
             } catch (e) {
-                if (enteredPass === "1234") {
-                    inputElem.value = '';
-                    failedAttempts = 0;
-                    document.getElementById('admin-mini-box').style.display = 'none';
-                    openModal('admin-panel-modal');
-                }
+                console.log("Admin auth check error:", e);
             }
         }
 
         window.addEventListener('click', (e) => {
             const miniBox = document.getElementById('admin-mini-box');
             const brand = document.querySelector('.brand-container');
-            if (miniBox.style.display === 'flex' && !miniBox.contains(e.target) && !brand.contains(e.target)) {
+            if (miniBox && brand && miniBox.style.display === 'flex' && !miniBox.contains(e.target) && !brand.contains(e.target)) {
                 miniBox.style.display = 'none';
             }
         });
 
         async function updateAdminPassword() {
             const newPass = document.getElementById('new-admin-pass').value.trim();
-            if (!newPass) {
-                alert("Please enter a valid password!");
+            if (!newPass || newPass.length < 4) {
+                alert("Please enter a valid password (at least 4 characters)!");
                 return;
             }
             try {
-                await db.collection("settings").doc("admin_security").set({ adminPass: newPass });
+                await db.collection("settings").doc("admin_security").set({ adminPass: newPass }, { merge: true });
                 alert("Admin Security Password updated successfully!");
                 document.getElementById('new-admin-pass').value = '';
             } catch (err) {
@@ -619,16 +677,19 @@
             }
         }
 
-        async function loadAdminData() {
-            db.collection("settings").doc("admin_cms").onSnapshot((doc) => {
+        function loadAdminData() {
+            if (unsubscribeCms) {
+                unsubscribeCms();
+            }
+            unsubscribeCms = db.collection("settings").doc("admin_cms").onSnapshot((doc) => {
                 if (doc.exists) {
-                    adminData = doc.data();
-                    if(!adminData.referralConfig) {
-                        adminData.referralConfig = { token: "SKY", amount: 100 };
-                    }
-                    if(!adminData.broadcastMessage) {
-                        adminData.broadcastMessage = "Welcome to MGSML Sky Project! Sign up now to receive 500 SKY Tokens instantly in your wallet.";
-                    }
+                    const fetched = doc.data();
+                    adminData = {
+                        links: fetched.links || {},
+                        tokensConfig: fetched.tokensConfig || { selectedToken: "SKY", tokenAmount: 500 },
+                        referralConfig: fetched.referralConfig || { token: "SKY", amount: 100 },
+                        broadcastMessage: fetched.broadcastMessage || "Welcome to MGSML Sky Project! Sign up now to receive 500 SKY Tokens instantly in your wallet."
+                    };
                 } else {
                     adminData = { 
                         links: {}, 
@@ -638,6 +699,8 @@
                     };
                 }
                 renderAdminInputs();
+            }, (err) => {
+                console.log("CMS listener note:", err);
             });
         }
 
@@ -707,7 +770,7 @@
             if(!msg) { alert("Please enter broadcast message!"); return; }
             adminData.broadcastMessage = msg;
             try {
-                await db.collection("settings").doc("admin_cms").set(adminData, { merge: true });
+                await db.collection("settings").doc("admin_cms").set({ broadcastMessage: msg }, { merge: true });
                 alert("✔ Broadcast message saved successfully!");
             } catch(e) {
                 alert("Error saving broadcast message.");
@@ -722,7 +785,7 @@
             adminData.links[btnName] = val;
 
             try {
-                await db.collection("settings").doc("admin_cms").set(adminData, { merge: true });
+                await db.collection("settings").doc("admin_cms").set({ links: { [btnName]: val } }, { merge: true });
                 alert(`✔ Link for "${btnName}" saved successfully!`);
             } catch (err) {
                 alert('Error saving link for ' + btnName);
@@ -739,14 +802,14 @@
                     selectedTk = tokenName;
                     const amtInput = document.getElementById('token-amt-' + safeId(tokenName));
                     if (amtInput && amtInput.value) {
-                        tkAmt = Number(amtInput.value);
+                        tkAmt = Number(amtInput.value) || 0;
                     }
                 }
             });
 
             adminData.tokensConfig = { selectedToken: selectedTk, tokenAmount: tkAmt };
             try {
-                await db.collection("settings").doc("admin_cms").set(adminData, { merge: true });
+                await db.collection("settings").doc("admin_cms").set({ tokensConfig: adminData.tokensConfig }, { merge: true });
             } catch (err) {}
         }
 
@@ -756,7 +819,7 @@
 
             adminData.referralConfig = { token: refToken, amount: refAmount };
             try {
-                await db.collection("settings").doc("admin_cms").set(adminData, { merge: true });
+                await db.collection("settings").doc("admin_cms").set({ referralConfig: adminData.referralConfig }, { merge: true });
             } catch (e) {}
         }
 
@@ -767,6 +830,7 @@
 
         function showBroadcastWithAnimation(messageText) {
             const container = document.getElementById('broadcast-content-area');
+            if (!container) return;
             container.innerHTML = '';
             
             const words = messageText.split(' ');
@@ -799,7 +863,7 @@
                 
                 if (targetUrl && targetUrl.startsWith('http')) {
                     const separator = targetUrl.includes('?') ? '&' : '?';
-                    targetUrl = `${targetUrl}${separator}uid=${activeUserId}`;
+                    targetUrl = `${targetUrl}${separator}uid=${encodeURIComponent(activeUserId)}`;
                     window.open(targetUrl, '_blank');
                 } else {
                     alert("Dashboard Home link is not configured in Admin CMS yet!");
@@ -812,6 +876,7 @@
 
         async function verifySponsorId(rawInput) {
             const feedback = document.getElementById('sponsor-feedback');
+            if (!feedback) return;
             let sponsorId = rawInput.trim().toUpperCase();
             if (!sponsorId) {
                 feedback.innerText = "Type sponsor ID to verify...";
@@ -866,8 +931,8 @@
                 let newUserIdNum = 2000;
                 await db.runTransaction(async (transaction) => {
                     const counterDoc = await transaction.get(counterRef);
-                    if (counterDoc.exists) { newUserIdNum = counterDoc.data().lastId + 1; }
-                    transaction.set(counterRef, { lastId: newUserIdNum });
+                    if (counterDoc.exists) { newUserIdNum = Number(counterDoc.data().lastId || 1999) + 1; }
+                    transaction.set(counterRef, { lastId: newUserIdNum }, { merge: true });
                 });
 
                 let bonusTokenName = "SKY";
@@ -881,7 +946,7 @@
                         const cData = cmsDoc.data();
                         if (cData.tokensConfig) {
                             bonusTokenName = cData.tokensConfig.selectedToken || "SKY";
-                            bonusAmount = cData.tokensConfig.tokenAmount || 500;
+                            bonusAmount = Number(cData.tokensConfig.tokenAmount) || 500;
                         }
                         if (cData.referralConfig) {
                             refBonusToken = cData.referralConfig.token || "SKY";
@@ -909,15 +974,15 @@
 
                 await db.collection("users").doc(userId).set(finalRecord);
 
-                const sponsorWallets = sponsorData.wallets || {};
+                const sponsorWallets = Object.assign({}, sponsorData.wallets || {});
                 let currentSponsorRefBal = sponsorWallets[refBonusToken] !== undefined ? Number(sponsorWallets[refBonusToken]) : 0;
                 currentSponsorRefBal += Number(refBonusAmount);
                 sponsorWallets[refBonusToken] = currentSponsorRefBal;
 
-                await sponsorRef.update({
+                await sponsorRef.set({
                     wallets: sponsorWallets,
-                    tokenBalance: refBonusToken === "SKY" ? currentSponsorRefBal : (sponsorData.tokenBalance || 500)
-                });
+                    tokenBalance: refBonusToken === "SKY" ? currentSponsorRefBal : Number(sponsorData.tokenBalance ?? 500)
+                }, { merge: true });
 
                 localStorage.setItem('mgsml_active_user', userId);
 
@@ -938,11 +1003,12 @@
         }
 
         async function processSignIn() {
+            clearSignInError();
             const identifier = document.getElementById('si-identifier').value.trim();
             const password = document.getElementById('si-password').value.trim();
 
             if (!identifier || !password) {
-                alert('Please enter your Gmail / User ID and password!');
+                showSignInError('Please enter your Gmail / User ID and password!');
                 return;
             }
 
@@ -956,35 +1022,63 @@
                     const docSnap = await db.collection("users").doc(userIdKey).get();
                     if (docSnap.exists) {
                         userDoc = docSnap.data();
-                        targetEmail = userDoc.email;
+                        targetEmail = (userDoc.email || "").trim();
                     }
                 } else {
-                    const snap = await db.collection("users").where("email", "==", identifier).get();
+                    let snap = await db.collection("users").where("email", "==", identifier).limit(1).get();
+                    if (snap.empty && identifier.toLowerCase() !== identifier) {
+                        snap = await db.collection("users").where("email", "==", identifier.toLowerCase()).limit(1).get();
+                    }
                     if (!snap.empty) {
                         userDoc = snap.docs[0].data();
-                        userIdKey = userDoc.userId;
+                        userIdKey = userDoc.userId || snap.docs[0].id;
+                        targetEmail = (userDoc.email || identifier).trim();
                     }
                 }
 
                 if (!userDoc) {
-                    alert('Account not found! Please Sign Up first.');
-                    closeModal('signin-modal');
-                    openModal('signup-modal');
+                    showSignInError('Account not found! Please check your ID/Gmail or Sign Up first.');
                     return;
                 }
 
-                await auth.signInWithEmailAndPassword(targetEmail, password);
-                
-                await db.collection("users").doc(userIdKey).update({
-                    lastActive: new Date().toISOString()
-                });
+                let signedIn = false;
 
-                localStorage.setItem('mgsml_active_user', userDoc.userId);
-                alert(`Sign-In Successful!\nWelcome back, ${userDoc.name} (${userDoc.userId})`);
-                closeModal('signin-modal');
-                checkActiveSession();
+                try {
+                    await auth.signInWithEmailAndPassword(targetEmail, password);
+                    signedIn = true;
+                } catch (authErr) {
+                    const firestorePass = (userDoc.password || "").toString().trim();
+                    if (firestorePass && password === firestorePass) {
+                        try {
+                            await auth.createUserWithEmailAndPassword(targetEmail, password);
+                            signedIn = true;
+                        } catch (createErr) {
+                            if (createErr.code === 'auth/email-already-in-use') {
+                                showSignInError('Wrong password! Please try again or use "Forgot Password?".');
+                                return;
+                            }
+                            signedIn = true;
+                        }
+                    } else {
+                        showSignInError('Wrong password! Please check and try again.');
+                        return;
+                    }
+                }
+
+                if (signedIn) {
+                    await db.collection("users").doc(userIdKey).set({
+                        password: password,
+                        lastActive: new Date().toISOString()
+                    }, { merge: true });
+
+                    const activeUid = userDoc.userId || userIdKey;
+                    localStorage.setItem('mgsml_active_user', activeUid);
+                    alert(`Sign-In Successful!\nWelcome back, ${userDoc.name || 'Member'} (${activeUid})`);
+                    closeModal('signin-modal');
+                    checkActiveSession();
+                }
             } catch (e) {
-                alert('Sign-in failed! Check your credentials or password.');
+                showSignInError('Wrong credentials or password! Please try again.');
             }
         }
 
@@ -1037,26 +1131,61 @@
         }
 
         function openForgotPassword() {
+            clearForgotError();
             closeModal('signin-modal');
             openModal('forgot-modal');
         }
 
         async function sendPasswordResetLink() {
+            clearForgotError();
             const email = document.getElementById('fp-email').value.trim();
-            if (!email) { alert('Please enter your registered Gmail address!'); return; }
+            const statusEl = document.getElementById('fp-status-msg');
+            const emailInput = document.getElementById('fp-email');
+
+            if (!email) {
+                if (emailInput) emailInput.style.borderColor = "#ef4444";
+                if (statusEl) {
+                    statusEl.style.display = "block";
+                    statusEl.style.color = "#ef4444";
+                    statusEl.style.background = "rgba(239, 68, 68, 0.12)";
+                    statusEl.style.border = "1px solid #ef4444";
+                    statusEl.innerText = "❌ Please enter your registered Gmail address!";
+                }
+                return;
+            }
+
             try {
                 await auth.sendPasswordResetEmail(email);
-                alert(`Password reset link sent successfully to ${email}. Check your inbox!`);
-                closeModal('forgot-modal');
-            } catch (err) { alert('Error sending reset link: ' + err.message); }
+                if (emailInput) emailInput.style.borderColor = "#10b981";
+                if (statusEl) {
+                    statusEl.style.display = "block";
+                    statusEl.style.color = "#10b981";
+                    statusEl.style.background = "rgba(16, 185, 129, 0.12)";
+                    statusEl.style.border = "1px solid #10b981";
+                    statusEl.innerText = `✔ Reset link sent to ${email}. Check Inbox / Spam folder!`;
+                }
+            } catch (err) {
+                if (emailInput) emailInput.style.borderColor = "#ef4444";
+                if (statusEl) {
+                    statusEl.style.display = "block";
+                    statusEl.style.color = "#ef4444";
+                    statusEl.style.background = "rgba(239, 68, 68, 0.12)";
+                    statusEl.style.border = "1px solid #ef4444";
+                    statusEl.innerText = "❌ Error: " + (err.message || "Could not send reset link.");
+                }
+            }
         }
 
-        async function checkActiveSession() {
+        function checkActiveSession() {
             const activeUserId = localStorage.getItem('mgsml_active_user');
             if (!activeUserId) return;
 
+            if (unsubscribeSession) {
+                unsubscribeSession();
+            }
+
             try {
-                db.collection("users").doc(activeUserId).onSnapshot((doc) => {
+                unsubscribeSession = db.collection("users").doc(activeUserId).onSnapshot((doc) => {
                     if (doc.exists) {
                         const data = doc.data();
                         document.getElementById('authGroup').style.display = 'none';
@@ -1068,14 +1197,18 @@
                         document.getElementById('navSkyBal').innerText = primaryBal;
                         document.getElementById('navTokenName').innerText = activeTk;
                     }
+                }, (e) => {
+                    console.error("Session sync error:", e);
                 });
             } catch (e) { console.error("Session sync error:", e); }
         }
 
         function logoutUser() {
-            auth.signOut();
-            localStorage.removeItem('mgsml_active_user');
-            location.reload();
+            auth.signOut().finally(() => {
+                if (unsubscribeSession) unsubscribeSession();
+                localStorage.removeItem('mgsml_active_user');
+                location.reload();
+            });
         }
 
         function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
