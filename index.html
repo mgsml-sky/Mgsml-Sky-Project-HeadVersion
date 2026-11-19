@@ -1054,7 +1054,7 @@
                             signedIn = true;
                         } catch (createErr) {
                             if (createErr.code === 'auth/email-already-in-use') {
-                                showSignInError('Wrong password! Please try again or use "Forgot Password?".');
+                                showSignInError('Wrong password! If you reset via email, use the new password or try Forgot Password again.');
                                 return;
                             }
                             signedIn = true;
