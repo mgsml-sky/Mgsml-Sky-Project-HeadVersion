@@ -146,7 +146,6 @@
             font-size: 11px; font-weight: bold; color: #10b981; cursor: pointer; white-space: nowrap;
         }
 
-        /* Workspace Grid (14 Preview Buttons) */
         .floating-workspace {
             position: absolute; top: 62px; left: 12px; right: 12px; bottom: 120px;
             display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -246,7 +245,6 @@
         </audio>
     </div>
 
-    <!-- BROADCAST POPUP MODAL -->
     <div id="broadcast-modal" class="modal-overlay">
         <div class="broadcast-card">
             <h3 style="color: #0284c7; margin-top:0; font-size:18px; font-weight:900; text-transform:uppercase; text-align:center; width:100%; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">📢 MGSML Broadcast Notice</h3>
@@ -509,6 +507,15 @@
         let failedAttempts = 0;
         let isLockedOut = false;
 
+        function normalizeSponsorId(rawInput) {
+            let sponsorId = (rawInput || "").trim().toUpperCase().replace(/\s+/g, "");
+            if (!sponsorId) return "";
+            if (/^\d+$/.test(sponsorId)) {
+                sponsorId = "MGSML" + sponsorId;
+            }
+            return sponsorId;
+        }
+
         function togglePasswordVisibility(inputId, btnId) {
             const inputEl = document.getElementById(inputId);
             const btnEl = document.getElementById(btnId);
@@ -587,16 +594,28 @@
         async function lookupUserIdByEmail(emailInput, previewElementId) {
             const previewEl = document.getElementById(previewElementId);
             if (!previewEl) return;
-            const rawEmail = emailInput.trim();
-            if (!rawEmail || rawEmail.length < 5) {
+            const rawEmail = (emailInput || "").trim();
+            if (!rawEmail || rawEmail.length < 4) {
                 previewEl.innerText = "";
                 return;
             }
 
+            if (rawEmail.toUpperCase().startsWith("MGSML")) {
+                const uid = rawEmail.toUpperCase();
+                try {
+                    const docSnap = await db.collection("users").doc(uid).get();
+                    if (docSnap.exists) {
+                        const d = docSnap.data();
+                        previewEl.innerText = `✔ Found ID: ${d.userId || uid} (${d.name || 'Member'})`;
+                        return;
+                    }
+                } catch (e) {}
+            }
+
             try {
-                let snap = await db.collection("users").where("email", "==", rawEmail).limit(1).get();
-                if (snap.empty && rawEmail.toLowerCase() !== rawEmail) {
-                    snap = await db.collection("users").where("email", "==", rawEmail.toLowerCase()).limit(1).get();
+                let snap = await db.collection("users").where("email", "==", rawEmail.toLowerCase()).limit(1).get();
+                if (snap.empty && rawEmail !== rawEmail.toLowerCase()) {
+                    snap = await db.collection("users").where("email", "==", rawEmail).limit(1).get();
                 }
                 if (!snap.empty) {
                     const userData = snap.docs[0].data();
@@ -877,13 +896,12 @@
         async function verifySponsorId(rawInput) {
             const feedback = document.getElementById('sponsor-feedback');
             if (!feedback) return;
-            let sponsorId = rawInput.trim().toUpperCase();
+            const sponsorId = normalizeSponsorId(rawInput);
             if (!sponsorId) {
                 feedback.innerText = "Type sponsor ID to verify...";
                 feedback.style.color = "#9ca3af";
                 return;
             }
-            if (/^\d+$/.test(sponsorId)) { sponsorId = "MGSML" + sponsorId; }
 
             try {
                 const doc = await db.collection("users").doc(sponsorId).get();
@@ -903,19 +921,29 @@
         async function initiateFirebaseSignUp() {
             const name = document.getElementById('su-name').value.trim();
             const phone = document.getElementById('su-phone').value.trim();
-            const email = document.getElementById('su-email').value.trim();
+            const email = document.getElementById('su-email').value.trim().toLowerCase();
             const password = document.getElementById('su-password').value.trim();
             const mpin = document.getElementById('su-mpin').value.trim();
-            let rawSponsor = document.getElementById('su-sponsor').value.trim().toUpperCase();
+            const normalizedSponsor = normalizeSponsorId(document.getElementById('su-sponsor').value);
 
-            if (!name || !phone || !email || !password || !mpin || !rawSponsor) {
+            if (!name || !phone || !email || !password || !mpin || !normalizedSponsor) {
                 alert('Please fill in all required fields!');
                 return;
             }
-            if (/^\d+$/.test(rawSponsor)) { rawSponsor = "MGSML" + rawSponsor; }
+
+            if (password.length < 6) {
+                alert('Password must be at least 6 characters long!');
+                return;
+            }
 
             try {
-                const sponsorRef = db.collection("users").doc(rawSponsor);
+                const existingEmailSnap = await db.collection("users").where("email", "==", email).limit(1).get();
+                if (!existingEmailSnap.empty) {
+                    alert('This Gmail is already registered! Please use Sign In instead.');
+                    return;
+                }
+
+                const sponsorRef = db.collection("users").doc(normalizedSponsor);
                 const sponsorDoc = await sponsorRef.get();
                 if (!sponsorDoc.exists) {
                     alert('Invalid Sponsor ID! Please provide a valid active sponsor.');
@@ -923,23 +951,31 @@
                 }
                 const sponsorData = sponsorDoc.data();
                 const sponsorName = sponsorData.name || 'Member';
+                const sponsorActualId = sponsorData.userId || normalizedSponsor;
 
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                await userCredential.user.sendEmailVerification();
-
+                // Generate new independent User ID for the new user
                 const counterRef = db.collection("settings").doc("id_counter");
-                let newUserIdNum = 2000;
+                let newUserIdNum = 2002;
                 await db.runTransaction(async (transaction) => {
                     const counterDoc = await transaction.get(counterRef);
-                    if (counterDoc.exists) { newUserIdNum = Number(counterDoc.data().lastId || 1999) + 1; }
+                    if (counterDoc.exists) {
+                        newUserIdNum = Number(counterDoc.data().lastId || 2001) + 1;
+                    } else {
+                        newUserIdNum = 2002;
+                    }
+                    if (newUserIdNum <= 2001) {
+                        newUserIdNum = 2002;
+                    }
                     transaction.set(counterRef, { lastId: newUserIdNum }, { merge: true });
                 });
 
+                const newUserId = "MGSML" + newUserIdNum;
+
                 let bonusTokenName = "SKY";
                 let bonusAmount = 500;
-
                 let refBonusToken = "SKY";
                 let refBonusAmount = 100;
+
                 try {
                     const cmsDoc = await db.collection("settings").doc("admin_cms").get();
                     if (cmsDoc.exists) {
@@ -955,25 +991,30 @@
                     }
                 } catch(e) {}
 
-                const userId = "MGSML" + newUserIdNum;
-
                 let initialWallets = {};
                 globalTokens.forEach(tk => {
                     initialWallets[tk] = (tk === bonusTokenName || tk === "SKY") ? Number(bonusAmount) : 0;
                 });
 
                 const finalRecord = {
-                    name, phone, email, password, mpin, sponsor: rawSponsor,
-                    userId: userId, 
+                    name,
+                    phone,
+                    email,
+                    password,
+                    mpin,
+                    sponsor: sponsorActualId,
+                    sponsorName: sponsorName,
+                    userId: newUserId,
                     tokenName: bonusTokenName,
-                    tokenBalance: Number(bonusAmount), 
+                    tokenBalance: Number(bonusAmount),
                     wallets: initialWallets,
                     createdAt: new Date().toISOString(),
                     lastActive: new Date().toISOString()
                 };
 
-                await db.collection("users").doc(userId).set(finalRecord);
+                await db.collection("users").doc(newUserId).set(finalRecord);
 
+                // Credit sponsor bonus ONLY to the sponsor's document
                 const sponsorWallets = Object.assign({}, sponsorData.wallets || {});
                 let currentSponsorRefBal = sponsorWallets[refBonusToken] !== undefined ? Number(sponsorWallets[refBonusToken]) : 0;
                 currentSponsorRefBal += Number(refBonusAmount);
@@ -981,20 +1022,29 @@
 
                 await sponsorRef.set({
                     wallets: sponsorWallets,
-                    tokenBalance: refBonusToken === "SKY" ? currentSponsorRefBal : Number(sponsorData.tokenBalance ?? 500)
+                    tokenBalance: refBonusToken === "SKY" ? currentSponsorRefBal : Number(sponsorData.tokenBalance ?? 0)
                 }, { merge: true });
 
-                localStorage.setItem('mgsml_active_user', userId);
+                try {
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    if (userCredential && userCredential.user) {
+                        await userCredential.user.sendEmailVerification().catch(() => {});
+                    }
+                } catch (authCreateErr) {
+                    console.log("Firebase Auth note:", authCreateErr.code || authCreateErr.message);
+                }
+
+                localStorage.setItem('mgsml_active_user', newUserId);
 
                 closeModal('signup-modal');
 
-                document.getElementById('sc-userid').innerText = userId;
+                document.getElementById('sc-userid').innerText = newUserId;
                 document.getElementById('sc-name').innerText = name;
                 document.getElementById('sc-phone').innerText = phone;
                 document.getElementById('sc-email').innerText = email;
                 document.getElementById('sc-pass').innerText = password;
                 document.getElementById('sc-mpin').innerText = mpin;
-                document.getElementById('sc-sponsor').innerText = `${rawSponsor} (${sponsorName}) - Sponsor received ${refBonusAmount} ${refBonusToken}!`;
+                document.getElementById('sc-sponsor').innerText = `${sponsorActualId} (${sponsorName}) - Sponsor received ${refBonusAmount} ${refBonusToken}!`;
 
                 openModal('success-card-modal');
             } catch (err) {
@@ -1014,25 +1064,27 @@
 
             try {
                 let userDoc = null;
-                let targetEmail = identifier;
+                let targetEmail = identifier.toLowerCase();
                 let userIdKey = "";
 
                 if (identifier.toUpperCase().startsWith("MGSML")) {
-                    userIdKey = identifier.toUpperCase();
+                    userIdKey = identifier.toUpperCase().replace(/\s+/g, "");
                     const docSnap = await db.collection("users").doc(userIdKey).get();
                     if (docSnap.exists) {
                         userDoc = docSnap.data();
-                        targetEmail = (userDoc.email || "").trim();
+                        userIdKey = userDoc.userId || userIdKey;
+                        targetEmail = (userDoc.email || "").trim().toLowerCase();
                     }
                 } else {
-                    let snap = await db.collection("users").where("email", "==", identifier).limit(1).get();
-                    if (snap.empty && identifier.toLowerCase() !== identifier) {
-                        snap = await db.collection("users").where("email", "==", identifier.toLowerCase()).limit(1).get();
+                    const lowerEmail = identifier.toLowerCase();
+                    let snap = await db.collection("users").where("email", "==", lowerEmail).limit(1).get();
+                    if (snap.empty) {
+                        snap = await db.collection("users").where("email", "==", identifier).limit(1).get();
                     }
                     if (!snap.empty) {
                         userDoc = snap.docs[0].data();
                         userIdKey = userDoc.userId || snap.docs[0].id;
-                        targetEmail = (userDoc.email || identifier).trim();
+                        targetEmail = (userDoc.email || lowerEmail).trim().toLowerCase();
                     }
                 }
 
@@ -1041,33 +1093,28 @@
                     return;
                 }
 
-                let signedIn = false;
+                const firestorePass = (userDoc.password || "").toString().trim();
+                let authSucceeded = false;
 
-                try {
-                    await auth.signInWithEmailAndPassword(targetEmail, password);
-                    signedIn = true;
-                } catch (authErr) {
-                    const firestorePass = (userDoc.password || "").toString().trim();
-                    if (firestorePass && password === firestorePass) {
-                        try {
-                            await auth.createUserWithEmailAndPassword(targetEmail, password);
-                            signedIn = true;
-                        } catch (createErr) {
-                            if (createErr.code === 'auth/email-already-in-use') {
-                                showSignInError('Wrong password! If you reset via email, use the new password or try Forgot Password again.');
-                                return;
-                            }
-                            signedIn = true;
-                        }
-                    } else {
-                        showSignInError('Wrong password! Please check and try again.');
-                        return;
+                if (targetEmail) {
+                    try {
+                        await auth.signInWithEmailAndPassword(targetEmail, password);
+                        authSucceeded = true;
+                    } catch (authErr) {
+                        authSucceeded = false;
                     }
                 }
 
-                if (signedIn) {
+                if (authSucceeded || (firestorePass && password === firestorePass)) {
+                    if (!authSucceeded && targetEmail) {
+                        try {
+                            await auth.createUserWithEmailAndPassword(targetEmail, password);
+                        } catch (e) {}
+                    }
+
                     await db.collection("users").doc(userIdKey).set({
                         password: password,
+                        email: targetEmail || userDoc.email || "",
                         lastActive: new Date().toISOString()
                     }, { merge: true });
 
@@ -1076,9 +1123,11 @@
                     alert(`Sign-In Successful!\nWelcome back, ${userDoc.name || 'Member'} (${activeUid})`);
                     closeModal('signin-modal');
                     checkActiveSession();
+                } else {
+                    showSignInError('Wrong password! Please check and try again.');
                 }
             } catch (e) {
-                showSignInError('Wrong credentials or password! Please try again.');
+                showSignInError('Sign-in failed: ' + (e.message || 'Please check your credentials and try again.'));
             }
         }
 
@@ -1138,7 +1187,7 @@
 
         async function sendPasswordResetLink() {
             clearForgotError();
-            const email = document.getElementById('fp-email').value.trim();
+            const email = document.getElementById('fp-email').value.trim().toLowerCase();
             const statusEl = document.getElementById('fp-status-msg');
             const emailInput = document.getElementById('fp-email');
 
