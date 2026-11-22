@@ -22,6 +22,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
         db.enablePersistence().catch((err) => console.log("Persistence note:", err.code));
     </script>
 
@@ -138,6 +139,10 @@
         .action-btn.signup-theme {
             background: linear-gradient(135deg, #059669, #10b981); border-color: #6ee7b7;
             box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+        .action-btn.google-theme {
+            background: linear-gradient(135deg, #1d4ed8, #38bdf8); border-color: #93c5fd;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         }
 
         .user-profile-pill {
@@ -269,7 +274,7 @@
             <button class="action-btn signup-theme" onclick="openModal('signup-modal')">Sign Up</button>
         </div>
 
-        <div id="userProfilePill" class="user-profile-pill" onclick="openProfileDetailsModal()" title="Click to view full details">
+        <div id="userProfilePill" class="user-profile-pill" onclick="handleUserProfileNavigation()" title="Click to open User Profile">
             🪙 <span id="navSkyBal">0</span> <span id="navTokenName">SKY</span> ▼
         </div>
     </div>
@@ -301,7 +306,8 @@
                 <input type="text" id="su-sponsor" class="custom-input" placeholder="Sponsor ID (e.g. 2000 or MGSML2000)" oninput="verifySponsorId(this.value)">
                 <div id="sponsor-feedback" style="font-size: 11px; margin-top: -4px; margin-bottom: 8px; font-weight: bold; color: #9ca3af;">Type sponsor ID to verify...</div>
             </div>
-            <button class="action-btn signup-theme" style="width:100%; margin-top:10px;" onclick="initiateFirebaseSignUp()">Send Real Gmail OTP & Register</button>
+            <button class="action-btn signup-theme" style="width:100%; margin-top:10px;" onclick="initiateFirebaseSignUp()">Register & Send Gmail Verification</button>
+            <button class="action-btn google-theme" style="width:100%; margin-top:8px; padding:9px;" onclick="signInWithGoogleAccount()">🔵 Sign Up / Continue with Google</button>
         </div>
     </div>
 
@@ -325,7 +331,7 @@
         </div>
     </div>
 
-    <!-- USER PROFILE DETAILS MODAL -->
+    <!-- USER PROFILE DETAILS MODAL (Fallback when User Profile link is not set) -->
     <div id="profile-details-modal" class="modal-overlay">
         <div class="modal-box" style="border: 2px solid var(--primary-sky); text-align: left;">
             <button class="modal-close" onclick="closeModal('profile-details-modal')">✕</button>
@@ -352,7 +358,10 @@
         <div class="modal-box">
             <button class="modal-close" onclick="closeModal('signin-modal')">✕</button>
             <h3 style="color: var(--primary-sky); margin-top:0;">🔐 Secure Sign-In</h3>
-            <p style="font-size: 11px; color: #9ca3af;">Type your Gmail and your User ID will appear automatically.</p>
+            <p style="font-size: 11px; color: #9ca3af;">Sign in with Google, or enter your Gmail / User ID and password.</p>
+
+            <button class="action-btn google-theme" style="width:100%; margin-bottom:10px; padding:10px; font-size:11px;" onclick="signInWithGoogleAccount()">🔵 Sign in with Google</button>
+
             <input type="text" id="si-identifier" class="custom-input" placeholder="Gmail Address or User ID" oninput="lookupUserIdByEmail(this.value, 'si-id-preview'); clearSignInError();">
             <div id="si-id-preview" style="font-size:11px; font-weight:bold; color:var(--accent-green); margin:-4px 0 6px 2px;"></div>
 
@@ -364,7 +373,9 @@
             <div id="si-error-msg" style="display: none; color: #ef4444; background: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444; padding: 8px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; margin-top: 4px;"></div>
 
             <button class="action-btn" style="width:100%; margin-top:10px;" onclick="processSignIn()">Sign In to Dashboard</button>
-            <div style="text-align: right; margin-top: 10px;">
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 10px; gap: 8px;">
+                <span style="font-size: 11px; color: var(--accent-green); cursor: pointer; text-decoration: underline;" onclick="sendGmailVerificationForSignIn()">Verify Gmail Link</span>
                 <span style="font-size: 11px; color: var(--primary-sky); cursor: pointer; text-decoration: underline;" onclick="openForgotPassword()">Forgot Password?</span>
             </div>
         </div>
@@ -516,6 +527,22 @@
             return sponsorId;
         }
 
+        function handleUserProfileNavigation() {
+            const profileUrl = (adminData.links && adminData.links["User Profile"]) ? adminData.links["User Profile"].trim() : "";
+            const activeUserId = (localStorage.getItem('mgsml_active_user') || "").trim().toUpperCase();
+
+            if (profileUrl && profileUrl.startsWith("http")) {
+                let finalUrl = profileUrl;
+                if (activeUserId) {
+                    const sep = finalUrl.includes("?") ? "&" : "?";
+                    finalUrl = `${finalUrl}${sep}uid=${encodeURIComponent(activeUserId)}`;
+                }
+                window.open(finalUrl, "_blank");
+            } else {
+                openProfileDetailsModal();
+            }
+        }
+
         function togglePasswordVisibility(inputId, btnId) {
             const inputEl = document.getElementById(inputId);
             const btnEl = document.getElementById(btnId);
@@ -574,7 +601,7 @@
                 pill.innerText = btnName;
                 pill.onclick = () => {
                     if (btnName === "User Profile") {
-                        openProfileDetailsModal();
+                        handleUserProfileNavigation();
                         return;
                     }
                     if (btnName === "Broadcast") {
@@ -582,7 +609,13 @@
                         return;
                     }
                     if (adminData.links && adminData.links[btnName]) {
-                        window.open(adminData.links[btnName], '_blank');
+                        let target = adminData.links[btnName].trim();
+                        const activeUserId = (localStorage.getItem('mgsml_active_user') || "").trim().toUpperCase();
+                        if (activeUserId && target.startsWith("http")) {
+                            const sep = target.includes("?") ? "&" : "?";
+                            target = `${target}${sep}uid=${encodeURIComponent(activeUserId)}`;
+                        }
+                        window.open(target, '_blank');
                     } else {
                         alert("Welcome to MGSML Sky Project - " + btnName);
                     }
@@ -918,6 +951,185 @@
             }
         }
 
+        async function generateNextUserId() {
+            const counterRef = db.collection("settings").doc("id_counter");
+            let newUserIdNum = 2002;
+            await db.runTransaction(async (transaction) => {
+                const counterDoc = await transaction.get(counterRef);
+                if (counterDoc.exists) {
+                    newUserIdNum = Number(counterDoc.data().lastId || 2001) + 1;
+                } else {
+                    newUserIdNum = 2002;
+                }
+                if (newUserIdNum <= 2001) {
+                    newUserIdNum = 2002;
+                }
+                transaction.set(counterRef, { lastId: newUserIdNum }, { merge: true });
+            });
+            return "MGSML" + newUserIdNum;
+        }
+
+        async function createUserRecordAndRewardSponsor({ name, phone, email, password, mpin, sponsorInput }) {
+            const normalizedSponsor = normalizeSponsorId(sponsorInput) || "MGSML2000";
+            let sponsorDoc = await db.collection("users").doc(normalizedSponsor).get();
+            let sponsorData = sponsorDoc.exists ? sponsorDoc.data() : null;
+            let sponsorActualId = sponsorData ? (sponsorData.userId || normalizedSponsor) : "";
+            let sponsorName = sponsorData ? (sponsorData.name || "Member") : "Root";
+
+            const newUserId = await generateNextUserId();
+
+            let bonusTokenName = "SKY";
+            let bonusAmount = 500;
+            let refBonusToken = "SKY";
+            let refBonusAmount = 100;
+
+            try {
+                const cmsDoc = await db.collection("settings").doc("admin_cms").get();
+                if (cmsDoc.exists) {
+                    const cData = cmsDoc.data();
+                    if (cData.tokensConfig) {
+                        bonusTokenName = cData.tokensConfig.selectedToken || "SKY";
+                        bonusAmount = Number(cData.tokensConfig.tokenAmount) || 500;
+                    }
+                    if (cData.referralConfig) {
+                        refBonusToken = cData.referralConfig.token || "SKY";
+                        refBonusAmount = Number(cData.referralConfig.amount) || 100;
+                    }
+                }
+            } catch (e) {}
+
+            const initialWallets = {};
+            globalTokens.forEach(tk => {
+                initialWallets[tk] = (tk === bonusTokenName || tk === "SKY") ? Number(bonusAmount) : 0;
+            });
+
+            const finalRecord = {
+                name,
+                phone: phone || "",
+                email: email.toLowerCase(),
+                password: password || "",
+                mpin: mpin || "",
+                sponsor: sponsorActualId,
+                sponsorName: sponsorName,
+                userId: newUserId,
+                tokenName: bonusTokenName,
+                tokenBalance: Number(bonusAmount),
+                wallets: initialWallets,
+                createdAt: new Date().toISOString(),
+                lastActive: new Date().toISOString()
+            };
+
+            await db.collection("users").doc(newUserId).set(finalRecord);
+
+            if (sponsorData && sponsorActualId) {
+                const sponsorRef = db.collection("users").doc(sponsorActualId);
+                const sponsorWallets = Object.assign({}, sponsorData.wallets || {});
+                let currentSponsorRefBal = sponsorWallets[refBonusToken] !== undefined ? Number(sponsorWallets[refBonusToken]) : 0;
+                currentSponsorRefBal += Number(refBonusAmount);
+                sponsorWallets[refBonusToken] = currentSponsorRefBal;
+
+                await sponsorRef.set({
+                    wallets: sponsorWallets,
+                    tokenBalance: refBonusToken === "SKY" ? currentSponsorRefBal : Number(sponsorData.tokenBalance ?? 0)
+                }, { merge: true });
+            }
+
+            return {
+                finalRecord,
+                sponsorActualId,
+                sponsorName,
+                refBonusToken,
+                refBonusAmount
+            };
+        }
+
+        async function signInWithGoogleAccount() {
+            clearSignInError();
+            try {
+                const result = await auth.signInWithPopup(googleProvider);
+                const gUser = result.user;
+                const email = (gUser && gUser.email ? gUser.email : "").trim().toLowerCase();
+                const displayName = (gUser && gUser.displayName ? gUser.displayName : "Google Member").trim();
+
+                if (!email) {
+                    showSignInError("Google account did not return an email address.");
+                    return;
+                }
+
+                let snap = await db.collection("users").where("email", "==", email).limit(1).get();
+                let userIdKey = "";
+                let userDoc = null;
+
+                if (!snap.empty) {
+                    userDoc = snap.docs[0].data();
+                    userIdKey = userDoc.userId || snap.docs[0].id;
+                    await db.collection("users").doc(userIdKey).set({
+                        name: userDoc.name || displayName,
+                        email: email,
+                        lastActive: new Date().toISOString()
+                    }, { merge: true });
+                } else {
+                    const sponsorRaw = document.getElementById('su-sponsor') ? document.getElementById('su-sponsor').value : "MGSML2000";
+                    const created = await createUserRecordAndRewardSponsor({
+                        name: displayName,
+                        phone: gUser.phoneNumber || "",
+                        email: email,
+                        password: "",
+                        mpin: "",
+                        sponsorInput: sponsorRaw
+                    });
+                    userDoc = created.finalRecord;
+                    userIdKey = created.finalRecord.userId;
+                }
+
+                localStorage.setItem('mgsml_active_user', userIdKey);
+                closeModal('signin-modal');
+                closeModal('signup-modal');
+                alert(`Google Sign-In Successful!\nWelcome, ${userDoc.name || displayName} (${userIdKey})`);
+                checkActiveSession();
+            } catch (err) {
+                showSignInError(err.message || "Google Sign-In failed.");
+            }
+        }
+
+        async function sendGmailVerificationForSignIn() {
+            clearSignInError();
+            const identifier = (document.getElementById('si-identifier').value || "").trim();
+            const password = (document.getElementById('si-password').value || "").trim();
+
+            if (!identifier) {
+                showSignInError("Enter your Gmail address first to send verification link.");
+                return;
+            }
+
+            try {
+                let targetEmail = identifier.toLowerCase();
+                if (identifier.toUpperCase().startsWith("MGSML")) {
+                    const docSnap = await db.collection("users").doc(identifier.toUpperCase()).get();
+                    if (docSnap.exists && docSnap.data().email) {
+                        targetEmail = docSnap.data().email.trim().toLowerCase();
+                    }
+                }
+
+                if (auth.currentUser && (auth.currentUser.email || "").toLowerCase() === targetEmail) {
+                    await auth.currentUser.sendEmailVerification();
+                    alert(`✔ Verification email sent to ${targetEmail}! Check your Gmail Inbox / Spam folder.`);
+                    return;
+                }
+
+                if (password) {
+                    const cred = await auth.signInWithEmailAndPassword(targetEmail, password);
+                    await cred.user.sendEmailVerification();
+                    alert(`✔ Verification email sent to ${targetEmail}! Check your Gmail Inbox / Spam folder.`);
+                } else {
+                    await auth.sendPasswordResetEmail(targetEmail);
+                    alert(`✔ Gmail verification / account link sent to ${targetEmail}! Check your Gmail Inbox / Spam folder.`);
+                }
+            } catch (err) {
+                showSignInError("Could not send Gmail verification: " + (err.message || "Check Gmail address."));
+            }
+        }
+
         async function initiateFirebaseSignUp() {
             const name = document.getElementById('su-name').value.trim();
             const phone = document.getElementById('su-phone').value.trim();
@@ -949,81 +1161,21 @@
                     alert('Invalid Sponsor ID! Please provide a valid active sponsor.');
                     return;
                 }
-                const sponsorData = sponsorDoc.data();
-                const sponsorName = sponsorData.name || 'Member';
-                const sponsorActualId = sponsorData.userId || normalizedSponsor;
 
-                // Generate new independent User ID for the new user
-                const counterRef = db.collection("settings").doc("id_counter");
-                let newUserIdNum = 2002;
-                await db.runTransaction(async (transaction) => {
-                    const counterDoc = await transaction.get(counterRef);
-                    if (counterDoc.exists) {
-                        newUserIdNum = Number(counterDoc.data().lastId || 2001) + 1;
-                    } else {
-                        newUserIdNum = 2002;
-                    }
-                    if (newUserIdNum <= 2001) {
-                        newUserIdNum = 2002;
-                    }
-                    transaction.set(counterRef, { lastId: newUserIdNum }, { merge: true });
-                });
-
-                const newUserId = "MGSML" + newUserIdNum;
-
-                let bonusTokenName = "SKY";
-                let bonusAmount = 500;
-                let refBonusToken = "SKY";
-                let refBonusAmount = 100;
-
-                try {
-                    const cmsDoc = await db.collection("settings").doc("admin_cms").get();
-                    if (cmsDoc.exists) {
-                        const cData = cmsDoc.data();
-                        if (cData.tokensConfig) {
-                            bonusTokenName = cData.tokensConfig.selectedToken || "SKY";
-                            bonusAmount = Number(cData.tokensConfig.tokenAmount) || 500;
-                        }
-                        if (cData.referralConfig) {
-                            refBonusToken = cData.referralConfig.token || "SKY";
-                            refBonusAmount = Number(cData.referralConfig.amount) || 100;
-                        }
-                    }
-                } catch(e) {}
-
-                let initialWallets = {};
-                globalTokens.forEach(tk => {
-                    initialWallets[tk] = (tk === bonusTokenName || tk === "SKY") ? Number(bonusAmount) : 0;
-                });
-
-                const finalRecord = {
+                const created = await createUserRecordAndRewardSponsor({
                     name,
                     phone,
                     email,
                     password,
                     mpin,
-                    sponsor: sponsorActualId,
-                    sponsorName: sponsorName,
-                    userId: newUserId,
-                    tokenName: bonusTokenName,
-                    tokenBalance: Number(bonusAmount),
-                    wallets: initialWallets,
-                    createdAt: new Date().toISOString(),
-                    lastActive: new Date().toISOString()
-                };
+                    sponsorInput: normalizedSponsor
+                });
 
-                await db.collection("users").doc(newUserId).set(finalRecord);
-
-                // Credit sponsor bonus ONLY to the sponsor's document
-                const sponsorWallets = Object.assign({}, sponsorData.wallets || {});
-                let currentSponsorRefBal = sponsorWallets[refBonusToken] !== undefined ? Number(sponsorWallets[refBonusToken]) : 0;
-                currentSponsorRefBal += Number(refBonusAmount);
-                sponsorWallets[refBonusToken] = currentSponsorRefBal;
-
-                await sponsorRef.set({
-                    wallets: sponsorWallets,
-                    tokenBalance: refBonusToken === "SKY" ? currentSponsorRefBal : Number(sponsorData.tokenBalance ?? 0)
-                }, { merge: true });
+                const newUserId = created.finalRecord.userId;
+                const sponsorName = created.sponsorName;
+                const sponsorActualId = created.sponsorActualId;
+                const refBonusToken = created.refBonusToken;
+                const refBonusAmount = created.refBonusAmount;
 
                 try {
                     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
