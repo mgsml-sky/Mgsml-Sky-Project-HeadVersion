@@ -23,6 +23,7 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
         const googleProvider = new firebase.auth.GoogleAuthProvider();
+        googleProvider.setCustomParameters({ prompt: 'select_account' });
         db.enablePersistence().catch((err) => console.log("Persistence note:", err.code));
     </script>
 
@@ -489,6 +490,23 @@
         let failedAttempts = 0;
         let isLockedOut = false;
 
+        function isAndroidOrMobileWebView() {
+            const ua = navigator.userAgent || "";
+            return /Android|wv|WebView|iPhone|iPad|iPod|Mobile/i.test(ua);
+        }
+
+        function navigateToTargetUrl(url) {
+            if (!url || !url.startsWith("http")) return;
+            if (isAndroidOrMobileWebView()) {
+                window.location.href = url;
+            } else {
+                const win = window.open(url, "_blank");
+                if (!win) {
+                    window.location.href = url;
+                }
+            }
+        }
+
         function normalizeSponsorId(rawInput) {
             let sponsorId = (rawInput || "").trim().toUpperCase().replace(/\s+/g, "");
             if (!sponsorId) return "";
@@ -510,7 +528,7 @@
             if (profileUrl && profileUrl.startsWith("http")) {
                 const sep = profileUrl.includes("?") ? "&" : "?";
                 const finalUrl = `${profileUrl}${sep}uid=${encodeURIComponent(activeUserId)}`;
-                window.open(finalUrl, "_blank");
+                navigateToTargetUrl(finalUrl);
             } else {
                 alert("Please set the User Profile GitHub link in Admin CMS first!");
             }
@@ -588,7 +606,7 @@
                             const sep = target.includes("?") ? "&" : "?";
                             target = `${target}${sep}uid=${encodeURIComponent(activeUserId)}`;
                         }
-                        window.open(target, '_blank');
+                        navigateToTargetUrl(target);
                     } else {
                         alert("Welcome to MGSML Sky Project - " + btnName);
                     }
@@ -889,7 +907,7 @@
                 if (targetUrl && targetUrl.startsWith('http')) {
                     const separator = targetUrl.includes('?') ? '&' : '?';
                     targetUrl = `${targetUrl}${separator}uid=${encodeURIComponent(activeUserId)}`;
-                    window.open(targetUrl, '_blank');
+                    navigateToTargetUrl(targetUrl);
                 } else {
                     alert("Dashboard Home link is not configured in Admin CMS yet!");
                 }
@@ -1016,52 +1034,92 @@
             };
         }
 
+        async function completeGoogleUserSession(gUser) {
+            const email = (gUser && gUser.email ? gUser.email : "").trim().toLowerCase();
+            const displayName = (gUser && gUser.displayName ? gUser.displayName : "Google Member").trim();
+
+            if (!email) {
+                showSignInError("Google account did not return an email address.");
+                return;
+            }
+
+            let snap = await db.collection("users").where("email", "==", email).limit(1).get();
+            let userIdKey = "";
+            let userDoc = null;
+
+            if (!snap.empty) {
+                userDoc = snap.docs[0].data();
+                userIdKey = userDoc.userId || snap.docs[0].id;
+                await db.collection("users").doc(userIdKey).set({
+                    name: userDoc.name || displayName,
+                    email: email,
+                    lastActive: new Date().toISOString()
+                }, { merge: true });
+            } else {
+                const sponsorRaw = localStorage.getItem('mgsml_pending_sponsor') ||
+                    (document.getElementById('su-sponsor') ? document.getElementById('su-sponsor').value : "MGSML2000");
+                const created = await createUserRecordAndRewardSponsor({
+                    name: displayName,
+                    phone: gUser.phoneNumber || "",
+                    email: email,
+                    password: "",
+                    mpin: "",
+                    sponsorInput: sponsorRaw
+                });
+                userDoc = created.finalRecord;
+                userIdKey = created.finalRecord.userId;
+            }
+
+            localStorage.removeItem('mgsml_pending_sponsor');
+            localStorage.setItem('mgsml_active_user', userIdKey);
+            closeModal('signin-modal');
+            closeModal('signup-modal');
+            checkActiveSession();
+        }
+
         async function signInWithGoogleAccount() {
             clearSignInError();
+            const sponsorInp = document.getElementById('su-sponsor');
+            if (sponsorInp && sponsorInp.value.trim()) {
+                localStorage.setItem('mgsml_pending_sponsor', sponsorInp.value.trim());
+            }
+
+            if (isAndroidOrMobileWebView()) {
+                try {
+                    await auth.signInWithRedirect(googleProvider);
+                } catch (err) {
+                    showSignInError(err.message || "Google Redirect failed.");
+                }
+                return;
+            }
+
             try {
                 const result = await auth.signInWithPopup(googleProvider);
-                const gUser = result.user;
-                const email = (gUser && gUser.email ? gUser.email : "").trim().toLowerCase();
-                const displayName = (gUser && gUser.displayName ? gUser.displayName : "Google Member").trim();
-
-                if (!email) {
-                    showSignInError("Google account did not return an email address.");
-                    return;
+                if (result && result.user) {
+                    await completeGoogleUserSession(result.user);
+                    alert(`Google Sign-In Successful!\nActive ID: ${localStorage.getItem('mgsml_active_user')}`);
                 }
-
-                let snap = await db.collection("users").where("email", "==", email).limit(1).get();
-                let userIdKey = "";
-                let userDoc = null;
-
-                if (!snap.empty) {
-                    userDoc = snap.docs[0].data();
-                    userIdKey = userDoc.userId || snap.docs[0].id;
-                    await db.collection("users").doc(userIdKey).set({
-                        name: userDoc.name || displayName,
-                        email: email,
-                        lastActive: new Date().toISOString()
-                    }, { merge: true });
-                } else {
-                    const sponsorRaw = document.getElementById('su-sponsor') ? document.getElementById('su-sponsor').value : "MGSML2000";
-                    const created = await createUserRecordAndRewardSponsor({
-                        name: displayName,
-                        phone: gUser.phoneNumber || "",
-                        email: email,
-                        password: "",
-                        mpin: "",
-                        sponsorInput: sponsorRaw
-                    });
-                    userDoc = created.finalRecord;
-                    userIdKey = created.finalRecord.userId;
-                }
-
-                localStorage.setItem('mgsml_active_user', userIdKey);
-                closeModal('signin-modal');
-                closeModal('signup-modal');
-                alert(`Google Sign-In Successful!\nWelcome, ${userDoc.name || displayName} (${userIdKey})`);
-                checkActiveSession();
             } catch (err) {
-                showSignInError(err.message || "Google Sign-In failed.");
+                if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment' || err.code === 'auth/cancelled-popup-request')) {
+                    try {
+                        await auth.signInWithRedirect(googleProvider);
+                    } catch (redErr) {
+                        showSignInError(redErr.message || "Google Sign-In failed.");
+                    }
+                } else {
+                    showSignInError(err.message || "Google Sign-In failed.");
+                }
+            }
+        }
+
+        async function handleGoogleRedirectOnLoad() {
+            try {
+                const result = await auth.getRedirectResult();
+                if (result && result.user) {
+                    await completeGoogleUserSession(result.user);
+                }
+            } catch (err) {
+                console.log("Redirect result note:", err.message || err);
             }
         }
 
@@ -1321,6 +1379,7 @@
         window.onload = function() {
             renderFloatingButtons();
             loadAdminData();
+            handleGoogleRedirectOnLoad();
             checkActiveSession();
         };
     </script>
