@@ -201,12 +201,6 @@
         }
         .modal-close { float: right; background: none; border: none; color: var(--danger); font-size: 16px; font-weight: bold; cursor: pointer; }
 
-        .wallet-badge-row {
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(15, 23, 42, 0.9); border: 1px solid #334155;
-            padding: 8px 12px; border-radius: 6px; margin-top: 4px; font-size: 11px;
-        }
-
         #admin-mini-box {
             display: none; position: fixed; top: 58px; left: 12px; width: 100px; height: 35px;
             background: #000000; border: none; outline: none; box-shadow: none;
@@ -274,7 +268,7 @@
             <button class="action-btn signup-theme" onclick="openModal('signup-modal')">Sign Up</button>
         </div>
 
-        <div id="userProfilePill" class="user-profile-pill" onclick="handleUserProfileNavigation()" title="Click to open User Profile">
+        <div id="userProfilePill" class="user-profile-pill" onclick="openExternalUserProfile()" title="Click to open User Profile">
             🪙 <span id="navSkyBal">0</span> <span id="navTokenName">SKY</span> ▼
         </div>
     </div>
@@ -306,8 +300,7 @@
                 <input type="text" id="su-sponsor" class="custom-input" placeholder="Sponsor ID (e.g. 2000 or MGSML2000)" oninput="verifySponsorId(this.value)">
                 <div id="sponsor-feedback" style="font-size: 11px; margin-top: -4px; margin-bottom: 8px; font-weight: bold; color: #9ca3af;">Type sponsor ID to verify...</div>
             </div>
-            <button class="action-btn signup-theme" style="width:100%; margin-top:10px;" onclick="initiateFirebaseSignUp()">Register & Send Gmail Verification</button>
-            <button class="action-btn google-theme" style="width:100%; margin-top:8px; padding:9px;" onclick="signInWithGoogleAccount()">🔵 Sign Up / Continue with Google</button>
+            <button class="action-btn signup-theme" style="width:100%; margin-top:10px; padding:10px;" onclick="initiateFirebaseSignUp()">Save & Register Account</button>
         </div>
     </div>
 
@@ -331,36 +324,12 @@
         </div>
     </div>
 
-    <!-- USER PROFILE DETAILS MODAL (Fallback when User Profile link is not set) -->
-    <div id="profile-details-modal" class="modal-overlay">
-        <div class="modal-box" style="border: 2px solid var(--primary-sky); text-align: left;">
-            <button class="modal-close" onclick="closeModal('profile-details-modal')">✕</button>
-            <h3 style="color: var(--primary-sky); margin-top:0; text-align:center;">👤 User Profile & 20 Tokens Wallet</h3>
-            
-            <div style="background:#030712; padding:15px; border-radius:8px; border:1px solid #1f2937; display:flex; flex-direction:column; gap:8px; font-size:12px;">
-                <div><strong>Unique ID:</strong> <span id="pd-userid" style="color:var(--primary-sky);"></span></div>
-                <div><strong>Full Name:</strong> <span id="pd-name"></span></div>
-                <div><strong>Mobile Number:</strong> <span id="pd-phone"></span></div>
-                <div><strong>Gmail Address:</strong> <span id="pd-email"></span></div>
-                
-                <div style="margin-top:8px; border-top:1px solid #1f2937; padding-top:8px;">
-                    <strong style="color:var(--gold); font-size:11px; text-transform:uppercase;">All 20 Tokens & Mined Balances:</strong>
-                    <div id="pd-all-tokens-container" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; margin-top:6px;"></div>
-                </div>
-            </div>
-
-            <button class="action-btn" style="width:100%; margin-top:15px; background:linear-gradient(135deg, #ef4444, #b91c1c); border-color:#f87171;" onclick="logoutUser()">Log Out</button>
-        </div>
-    </div>
-
-    <!-- SIGN-IN MODAL -->
+    <!-- SIGN-IN MODAL (Gmail + Password + Save + Extra Google Button Below) -->
     <div id="signin-modal" class="modal-overlay">
         <div class="modal-box">
             <button class="modal-close" onclick="closeModal('signin-modal')">✕</button>
             <h3 style="color: var(--primary-sky); margin-top:0;">🔐 Secure Sign-In</h3>
-            <p style="font-size: 11px; color: #9ca3af;">Sign in with Google, or enter your Gmail / User ID and password.</p>
-
-            <button class="action-btn google-theme" style="width:100%; margin-bottom:10px; padding:10px; font-size:11px;" onclick="signInWithGoogleAccount()">🔵 Sign in with Google</button>
+            <p style="font-size: 11px; color: #9ca3af;">Enter your Gmail / User ID and password to sign in & save session.</p>
 
             <input type="text" id="si-identifier" class="custom-input" placeholder="Gmail Address or User ID" oninput="lookupUserIdByEmail(this.value, 'si-id-preview'); clearSignInError();">
             <div id="si-id-preview" style="font-size:11px; font-weight:bold; color:var(--accent-green); margin:-4px 0 6px 2px;"></div>
@@ -372,10 +341,12 @@
 
             <div id="si-error-msg" style="display: none; color: #ef4444; background: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444; padding: 8px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; margin-top: 4px;"></div>
 
-            <button class="action-btn" style="width:100%; margin-top:10px;" onclick="processSignIn()">Sign In to Dashboard</button>
+            <button class="action-btn signup-theme" style="width:100%; margin-top:10px; padding:10px;" onclick="processSignIn()">Sign In & Save</button>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 10px; gap: 8px;">
-                <span style="font-size: 11px; color: var(--accent-green); cursor: pointer; text-decoration: underline;" onclick="sendGmailVerificationForSignIn()">Verify Gmail Link</span>
+            <!-- Extra Google Button Below -->
+            <button class="action-btn google-theme" style="width:100%; margin-top:8px; padding:10px;" onclick="signInWithGoogleAccount()">Sign in with Google</button>
+
+            <div style="text-align: right; margin-top: 10px;">
                 <span style="font-size: 11px; color: var(--primary-sky); cursor: pointer; text-decoration: underline;" onclick="openForgotPassword()">Forgot Password?</span>
             </div>
         </div>
@@ -527,19 +498,21 @@
             return sponsorId;
         }
 
-        function handleUserProfileNavigation() {
+        function openExternalUserProfile() {
             const profileUrl = (adminData.links && adminData.links["User Profile"]) ? adminData.links["User Profile"].trim() : "";
             const activeUserId = (localStorage.getItem('mgsml_active_user') || "").trim().toUpperCase();
 
+            if (!activeUserId) {
+                openModal('signin-modal');
+                return;
+            }
+
             if (profileUrl && profileUrl.startsWith("http")) {
-                let finalUrl = profileUrl;
-                if (activeUserId) {
-                    const sep = finalUrl.includes("?") ? "&" : "?";
-                    finalUrl = `${finalUrl}${sep}uid=${encodeURIComponent(activeUserId)}`;
-                }
+                const sep = profileUrl.includes("?") ? "&" : "?";
+                const finalUrl = `${profileUrl}${sep}uid=${encodeURIComponent(activeUserId)}`;
                 window.open(finalUrl, "_blank");
             } else {
-                openProfileDetailsModal();
+                alert("Please set the User Profile GitHub link in Admin CMS first!");
             }
         }
 
@@ -601,7 +574,7 @@
                 pill.innerText = btnName;
                 pill.onclick = () => {
                     if (btnName === "User Profile") {
-                        handleUserProfileNavigation();
+                        openExternalUserProfile();
                         return;
                     }
                     if (btnName === "Broadcast") {
@@ -1092,44 +1065,6 @@
             }
         }
 
-        async function sendGmailVerificationForSignIn() {
-            clearSignInError();
-            const identifier = (document.getElementById('si-identifier').value || "").trim();
-            const password = (document.getElementById('si-password').value || "").trim();
-
-            if (!identifier) {
-                showSignInError("Enter your Gmail address first to send verification link.");
-                return;
-            }
-
-            try {
-                let targetEmail = identifier.toLowerCase();
-                if (identifier.toUpperCase().startsWith("MGSML")) {
-                    const docSnap = await db.collection("users").doc(identifier.toUpperCase()).get();
-                    if (docSnap.exists && docSnap.data().email) {
-                        targetEmail = docSnap.data().email.trim().toLowerCase();
-                    }
-                }
-
-                if (auth.currentUser && (auth.currentUser.email || "").toLowerCase() === targetEmail) {
-                    await auth.currentUser.sendEmailVerification();
-                    alert(`✔ Verification email sent to ${targetEmail}! Check your Gmail Inbox / Spam folder.`);
-                    return;
-                }
-
-                if (password) {
-                    const cred = await auth.signInWithEmailAndPassword(targetEmail, password);
-                    await cred.user.sendEmailVerification();
-                    alert(`✔ Verification email sent to ${targetEmail}! Check your Gmail Inbox / Spam folder.`);
-                } else {
-                    await auth.sendPasswordResetEmail(targetEmail);
-                    alert(`✔ Gmail verification / account link sent to ${targetEmail}! Check your Gmail Inbox / Spam folder.`);
-                }
-            } catch (err) {
-                showSignInError("Could not send Gmail verification: " + (err.message || "Check Gmail address."));
-            }
-        }
-
         async function initiateFirebaseSignUp() {
             const name = document.getElementById('su-name').value.trim();
             const phone = document.getElementById('su-phone').value.trim();
@@ -1272,7 +1207,7 @@
 
                     const activeUid = userDoc.userId || userIdKey;
                     localStorage.setItem('mgsml_active_user', activeUid);
-                    alert(`Sign-In Successful!\nWelcome back, ${userDoc.name || 'Member'} (${activeUid})`);
+                    alert(`Sign-In Successful & Saved!\nWelcome back, ${userDoc.name || 'Member'} (${activeUid})`);
                     closeModal('signin-modal');
                     checkActiveSession();
                 } else {
@@ -1297,38 +1232,6 @@
                 return Number(data.tokenBalance ?? data.skyBalance ?? data.sky ?? 0);
             }
             return Number(data[tokenName.toLowerCase() + "Balance"] ?? data[tokenName] ?? 0);
-        }
-
-        async function openProfileDetailsModal() {
-            const activeUserId = localStorage.getItem('mgsml_active_user');
-            if (!activeUserId) {
-                openModal('signin-modal');
-                return;
-            }
-
-            try {
-                const doc = await db.collection("users").doc(activeUserId).get();
-                if (doc.exists) {
-                    const data = doc.data();
-                    document.getElementById('pd-userid').innerText = data.userId || activeUserId;
-                    document.getElementById('pd-name').innerText = data.name || "Member";
-                    document.getElementById('pd-phone').innerText = data.phone || "N/A";
-                    document.getElementById('pd-email').innerText = data.email || "N/A";
-                    
-                    const tokensContainer = document.getElementById('pd-all-tokens-container');
-                    tokensContainer.innerHTML = '';
-                    
-                    globalTokens.forEach(token => {
-                        const bal = getTokenBalance(data, token);
-                        const row = document.createElement('div');
-                        row.className = 'wallet-badge-row';
-                        row.innerHTML = `🪙 <strong>${token}:</strong> <span style="color:var(--accent-green); font-weight:900;">${bal}</span>`;
-                        tokensContainer.appendChild(row);
-                    });
-
-                    openModal('profile-details-modal');
-                }
-            } catch (e) {}
         }
 
         function openForgotPassword() {
